@@ -43,7 +43,10 @@
         "symfony/cache": "^6.4 || ^7.4 || ^8.0",
         "symfony/framework-bundle": "^6.4 || ^7.4 || ^8.0",
         "symfony/twig-bundle": "^6.4 || ^7.4 || ^8.0",
-        "twig/twig": "^3.10"
+        "twig/twig": "^3.21"
+    },
+    "conflict": {
+        "twig/twig": "<3.21"
     },
     "suggest": {
         "symfony/twig-bundle": "To render diagrams in templates with the |d2 filter"

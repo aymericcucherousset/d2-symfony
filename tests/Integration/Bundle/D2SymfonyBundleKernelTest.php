@@ -221,4 +221,26 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         self::assertStringContainsString("arg:--theme=200\narg:--sketch\n", $output);
         self::assertStringContainsString("stdin:a -> b\n", $output);
     }
+
+    public function testTwigTagRendersSvgThroughConfiguredServices(): void
+    {
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('The fake d2 binary is a POSIX shell script.');
+        }
+
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', ['binary_path' => self::FAKE_D2, 'cache' => false]);
+            });
+        }]);
+
+        $twig = self::getContainer()->get('twig');
+        self::assertInstanceOf(Environment::class, $twig);
+
+        $output = $twig->createTemplate("<main>{% d2 with { layout: 'elk' } %}user -> {{ target }}{% endd2 %}</main>")->render(['target' => 'app']);
+
+        self::assertStringStartsWith('<main><svg>', $output);
+        self::assertStringContainsString("arg:--layout=elk\n", $output);
+        self::assertStringContainsString("stdin:user -> app\n", $output);
+    }
 }
