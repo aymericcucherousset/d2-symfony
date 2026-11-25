@@ -4,12 +4,117 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Bundle;
 
+use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
+use Aymericcucherousset\D2Symfony\Core\Renderer;
+use Aymericcucherousset\D2Symfony\Core\RenderOptions;
+use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
+/**
+ * @phpstan-type D2Config array{
+ *     binary_path: string,
+ *     timeout: int|float|null,
+ *     defaults: array{theme: int|null, layout: string|null, pad: int|null, sketch: bool},
+ * }
+ */
 final class D2Bundle extends AbstractBundle
 {
     public function getPath(): string
     {
         return \dirname(__DIR__, 2);
+    }
+
+    public function configure(DefinitionConfigurator $definition): void
+    {
+        $definition->rootNode()
+            ->children()
+                ->scalarNode('binary_path')
+                    ->info('Name of the d2 executable looked up in the PATH, or path to it.')
+                    ->defaultValue('d2')
+                    ->cannotBeEmpty()
+                    ->validate()
+                        ->ifTrue(static fn (mixed $value): bool => !\is_string($value))
+                        ->thenInvalid('The d2 binary path must be a string, %s given.')
+                    ->end()
+                ->end()
+                ->scalarNode('timeout')
+                    ->info('Maximum rendering time in seconds; null disables the limit.')
+                    ->defaultValue(60.0)
+                    ->validate()
+                        ->ifTrue(static fn (mixed $value): bool => null !== $value && (!(\is_int($value) || \is_float($value)) || $value <= 0))
+                        ->thenInvalid('The timeout must be a number greater than 0 or null, %s given.')
+                    ->end()
+                ->end()
+                ->arrayNode('defaults')
+                    ->info('Render options applied to every diagram unless overridden; null means "use the d2 default".')
+                    ->addDefaultsIfNotSet()
+                    ->beforeNormalization()
+                        ->ifArray()
+                        ->then(static fn (array $options): array => array_filter($options, static fn (mixed $value): bool => null !== $value))
+                    ->end()
+                    ->children()
+                        ->integerNode('theme')->info('d2 theme ID.')->defaultNull()->min(0)->end()
+                        ->scalarNode('layout')->info('Layout engine, e.g. "dagre" or "elk".')->defaultNull()->end()
+                        ->integerNode('pad')->info('Padding around the diagram, in pixels.')->defaultNull()->min(0)->end()
+                        ->booleanNode('sketch')->info('Render with a hand-drawn look.')->defaultFalse()->end()
+                    ->end()
+                    ->validate()
+                        ->always(static function (mixed $options): mixed {
+                            // Reuse the core validation rules as the single source of truth.
+                            self::createRenderOptions($options);
+
+                            return $options;
+                        })
+                    ->end()
+                ->end()
+            ->end()
+        ;
+    }
+
+    /**
+     * @param array<array-key, mixed> $config
+     */
+    public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
+    {
+        /** @var D2Config $config */
+        $services = $container->services();
+
+        $services->set('d2.renderer.binary', BinaryRenderer::class)
+            ->args([
+                $config['binary_path'],
+                null === $config['timeout'] ? null : (float) $config['timeout'],
+            ]);
+
+        $services->alias('d2.renderer', 'd2.renderer.binary');
+        $services->alias(Renderer::class, 'd2.renderer');
+
+        $defaults = $config['defaults'];
+        $services->set('d2.default_options', RenderOptions::class)
+            ->args([$defaults['theme'], $defaults['layout'], $defaults['pad'], $defaults['sketch']]);
+    }
+
+    private static function createRenderOptions(mixed $options): RenderOptions
+    {
+        if (!\is_array($options)) {
+            throw new \InvalidArgumentException('The default render options must be an array.');
+        }
+
+        $theme = $options['theme'] ?? null;
+        $layout = $options['layout'] ?? null;
+        $pad = $options['pad'] ?? null;
+        $sketch = $options['sketch'] ?? false;
+
+        if (null !== $layout && !\is_string($layout)) {
+            throw new \InvalidArgumentException(\sprintf('The layout must be a string, %s given.', get_debug_type($layout)));
+        }
+
+        return new RenderOptions(
+            \is_int($theme) ? $theme : null,
+            $layout,
+            \is_int($pad) ? $pad : null,
+            true === $sketch,
+        );
     }
 }
