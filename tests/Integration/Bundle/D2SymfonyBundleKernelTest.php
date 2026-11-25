@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Tests\Integration\Bundle;
 
-use Aymericcucherousset\D2Symfony\Bundle\D2Bundle;
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
+use Aymericcucherousset\D2Symfony\D2SymfonyBundle;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\RendererConsumer;
 use Nyholm\BundleTest\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -19,7 +19,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Twig\Environment;
 
-final class D2BundleKernelTest extends KernelTestCase
+final class D2SymfonyBundleKernelTest extends KernelTestCase
 {
     private const FAKE_D2 = __DIR__.'/../../Fixtures/bin/fake-d2-echo';
 
@@ -66,7 +66,7 @@ final class D2BundleKernelTest extends KernelTestCase
         self::assertInstanceOf(TestKernel::class, $kernel);
 
         $kernel->addTestBundle(TwigBundle::class);
-        $kernel->addTestBundle(D2Bundle::class);
+        $kernel->addTestBundle(D2SymfonyBundle::class);
         $kernel->addTestConfig(static function (ContainerBuilder $container): void {
             $container->register(RendererConsumer::class)->setAutowired(true)->setPublic(true);
         });

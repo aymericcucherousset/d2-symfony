@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Twig: `|d2` filter (`{{ source|d2({ theme: 200, sketch: true }) }}`) rendering inline SVG through a lazily loaded runtime, using `d2.defaults` as base options; registered when Twig is installed.
 - README quick start: installation, configuration reference, Twig and PHP usage, errors, roadmap, and a diagram rendered by the bundle.
 
+### Changed
+
+- The bundle class is now `Aymericcucherousset\D2Symfony\D2SymfonyBundle` at the package root, so Symfony Flex registers it automatically.
+
 ### Fixed
 
 - `D2Bundle::getPath()` now returns the package root instead of `src/`.
