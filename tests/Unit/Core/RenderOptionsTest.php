@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Tests\Unit\Core;
 
+use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -98,14 +99,14 @@ final class RenderOptionsTest extends TestCase
     #[DataProvider('invalidOptionsProvider')]
     public function testInvalidOptionsAreRejected(array $arguments): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         new RenderOptions(...$arguments);
     }
 
     public function testWithersValidate(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         (new RenderOptions())->withPad(-5);
     }
