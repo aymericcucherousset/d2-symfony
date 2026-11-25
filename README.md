@@ -5,9 +5,149 @@
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg)](phpstan.neon.dist)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Render [D2](https://d2lang.com) diagrams in Symfony & Twig: local binary or Kroki, cached, profiler-ready.
+Write [D2](https://d2lang.com) diagrams as text in your Twig templates and get inline SVG, rendered by Symfony.
 
-> Work in progress — not released yet.
+> [!NOTE]
+> Work in progress — not released yet. See the [roadmap](#roadmap).
+
+![How a diagram is rendered: a Twig template uses the |d2 filter, which sends a Diagram to the BinaryRenderer; the d2 binary reads it on stdin and writes the SVG on stdout.](docs/images/example.svg)
+
+<sub>This diagram was rendered by the bundle itself from [`docs/example.d2`](docs/example.d2).</sub>
+
+## Requirements
+
+- PHP 8.2 or later
+- Symfony 6.4, 7.4 or 8.x
+- Twig 3 (`symfony/twig-bundle`), for the `|d2` filter
+- The [`d2` binary](https://d2lang.com/tour/install)
+
+## Installation
+
+1. Install the bundle:
+
+   ```bash
+   composer require aymericcucherousset/d2-symfony
+   ```
+
+2. Register it in `config/bundles.php` (a Flex recipe will do this automatically later):
+
+   ```php
+   return [
+       // ...
+       Aymericcucherousset\D2Symfony\Bundle\D2Bundle::class => ['all' => true],
+   ];
+   ```
+
+3. Install the `d2` binary (see the [official instructions](https://d2lang.com/tour/install) for other methods):
+
+   ```bash
+   curl -fsSL https://d2lang.com/install.sh | sh -s --
+   d2 --version
+   ```
+
+   The bundle looks for `d2` in your `PATH`. Automatic download of the binary is planned for v0.3.0.
+
+## Configuration
+
+No configuration is required. Here is the full reference with the default values, to put in `config/packages/d2.yaml` if you need to change something:
+
+```yaml
+d2:
+    # Name of the d2 executable looked up in the PATH, or path to it.
+    binary_path: d2
+
+    # Maximum rendering time in seconds; ~ disables the limit.
+    timeout: 60
+
+    # Options applied to every diagram unless overridden.
+    # ~ means "use the d2 default".
+    defaults:
+        theme: ~      # d2 theme ID, e.g. 200 (dark mauve)
+        layout: ~     # layout engine: dagre (d2 default) or elk
+        pad: ~        # padding around the diagram, in pixels (d2 default: 100)
+        sketch: false # hand-drawn look
+```
+
+Invalid values (negative padding, unknown layout format, unknown keys…) are rejected when the container is built.
+
+## Usage
+
+### Twig
+
+Pipe D2 source into the `|d2` filter; it outputs the SVG markup, ready to inline in your HTML:
+
+```twig
+{{ 'shop -> payment: checkout'|d2 }}
+```
+
+Multi-line diagrams read best with a `{% set %}` block, and options override the configured defaults:
+
+```twig
+{% set architecture %}
+direction: right
+user -> app: HTTPS
+app -> db: SQL
+db: { shape: cylinder }
+{% endset %}
+
+<figure>
+    {{ architecture|d2({ theme: 200, sketch: true }) }}
+</figure>
+```
+
+Available options: `theme` (int), `layout` (string), `pad` (int) and `sketch` (bool); `null` resets an option to the d2 default. Twig variables work as usual: `{{ diagram.source|d2 }}`.
+
+### PHP
+
+Autowire the `Renderer` service anywhere in your application:
+
+```php
+use Aymericcucherousset\D2Symfony\Core\Diagram;
+use Aymericcucherousset\D2Symfony\Core\Renderer;
+use Aymericcucherousset\D2Symfony\Core\RenderOptions;
+use Symfony\Component\HttpFoundation\Response;
+
+final class DiagramController
+{
+    public function __construct(private Renderer $renderer)
+    {
+    }
+
+    public function __invoke(): Response
+    {
+        $svg = $this->renderer->render(new Diagram(
+            'a -> b',
+            new RenderOptions(layout: 'elk', sketch: true),
+        ));
+
+        return new Response($svg, headers: ['Content-Type' => 'image/svg+xml']);
+    }
+}
+```
+
+### Errors
+
+Every exception thrown by the bundle implements `Aymericcucherousset\D2Symfony\Core\Exception\D2Exception`:
+
+| Exception | Thrown when |
+| --- | --- |
+| `RenderException` | d2 rejects the source or rendering fails (timeout…); `getD2Error()` returns the raw d2 error output |
+| `BinaryNotFoundException` | the `d2` binary is missing or not executable |
+| `InvalidArgumentException` | a diagram or an option is invalid (empty source, unknown option…) |
+
+In templates, Twig wraps them in a `Twig\Error\RuntimeError` pointing to the template line.
+
+## Roadmap
+
+| Milestone | Goal |
+| --- | --- |
+| [v0.1.0 — Working core](https://github.com/aymericcucherousset/d2-symfony/milestone/1) | Render a D2 diagram to SVG from Twig using a manually installed binary. |
+| [v0.2.0 — Caching & Twig ergonomics](https://github.com/aymericcucherousset/d2-symfony/milestone/2) | Cached rendering, `{% d2 %}` tag, readable errors. |
+| [v0.3.0 — Frictionless installation](https://github.com/aymericcucherousset/d2-symfony/milestone/3) | The d2 binary is downloaded automatically. |
+| [v0.4.0 — Kroki renderer](https://github.com/aymericcucherousset/d2-symfony/milestone/4) | HTTP renderer for environments where binaries cannot run. |
+| [v0.5.0 — Developer experience](https://github.com/aymericcucherousset/d2-symfony/milestone/5) | Profiler panel, rendering CLI, fully typed options. |
+| [v0.6.0 — Formats & integrations](https://github.com/aymericcucherousset/d2-symfony/milestone/6) | PNG/PDF output, `.d2` files, Markdown code blocks. |
+| [v1.0.0 — Stabilization](https://github.com/aymericcucherousset/d2-symfony/milestone/7) | Frozen API, complete documentation, release. |
 
 ## Development
 
@@ -17,7 +157,13 @@ composer ci        # PHP-CS-Fixer + PHPStan + PHPUnit
 composer cs-fix    # apply coding standards
 ```
 
-Integration tests need the [`d2` binary](https://d2lang.com/tour/install) on your `PATH`; they are skipped otherwise.
+Integration tests need the [`d2` binary](https://d2lang.com/tour/install) on your `PATH`; they are skipped otherwise (set `D2_REQUIRED=1` to make them fail instead).
+
+To regenerate the README diagram after editing [`docs/example.d2`](docs/example.d2):
+
+```bash
+d2 --pad=20 docs/example.d2 docs/images/example.svg
+```
 
 ## License
 
