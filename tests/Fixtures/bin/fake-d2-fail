@@ -1,0 +1,4 @@
+#!/bin/sh
+cat > /dev/null
+echo "err: failed to compile -: 1:4: unexpected text after map key" >&2
+exit 1

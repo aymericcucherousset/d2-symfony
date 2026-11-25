@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README with CI badges.
 - Core: immutable `Diagram` (non-empty D2 source + options) and `RenderOptions` (`theme`, `layout`, `pad`, `sketch`) value objects, with `toCliArguments()` and `fingerprint()` for cache keys.
 - Core: `Renderer` port (`render(Diagram): string`, returns SVG) and exception hierarchy: `D2Exception` marker interface implemented by `RenderException` (keeps the raw D2 error), `BinaryNotFoundException` and `InvalidArgumentException` (now thrown by `Diagram` and `RenderOptions`).
+- Core: `BinaryRenderer`, rendering through the local `d2` binary with `symfony/process` (source on stdin, SVG on stdout, no temporary file), configurable binary path and timeout; failures raise `RenderException` with the raw stderr, a missing or non-executable binary raises `BinaryNotFoundException`.
 
 ### Fixed
 

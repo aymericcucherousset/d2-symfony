@@ -1,0 +1,4 @@
+#!/bin/sh
+cat > /dev/null
+echo "success: nothing written" >&2
+exit 0

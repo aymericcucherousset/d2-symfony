@@ -1,0 +1,7 @@
+#!/bin/sh
+# Echoes its arguments and stdin, wrapped like an SVG document.
+printf '<svg>\n'
+for arg in "$@"; do printf 'arg:%s\n' "$arg"; done
+printf 'stdin:'
+cat
+printf '\n</svg>\n'
