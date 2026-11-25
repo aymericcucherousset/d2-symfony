@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-25
+
 ### Added
 
 - Initial package structure: `composer.json` (`symfony-bundle`, PHP >= 8.2, Symfony 6.4 / 7.4 / 8.x), `src/Core`, `src/Bundle`, `tests/`.
@@ -29,4 +31,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `D2Bundle::getPath()` now returns the package root instead of `src/`.
 
-[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/commits/main
+[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/aymericcucherousset/d2-symfony/releases/tag/v0.1.0
