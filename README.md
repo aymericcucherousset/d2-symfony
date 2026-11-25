@@ -18,7 +18,7 @@ Write [D2](https://d2lang.com) diagrams as text in your Twig templates and get i
 
 - PHP 8.2 or later
 - Symfony 6.4, 7.4 or 8.x
-- Twig 3 (`symfony/twig-bundle`), for the `|d2` filter
+- Twig 3.21 or later (`symfony/twig-bundle`), for the `|d2` filter and `{% d2 %}` tag
 - The [`d2` binary](https://d2lang.com/tour/install)
 
 ## Installation
@@ -105,6 +105,19 @@ db: { shape: cylinder }
 ```
 
 Available options: `theme` (int), `layout` (string), `pad` (int) and `sketch` (bool); `null` resets an option to the d2 default. Twig variables work as usual: `{{ diagram.source|d2 }}`.
+
+The `{% d2 %}` tag lets you write the diagram directly in the template, with the same options:
+
+```twig
+{% d2 with { layout: 'elk' } %}
+user -> app: {{ protocol }}
+{% for service in services %}
+app -> {{ service }}
+{% endfor %}
+{% endd2 %}
+```
+
+Twig variables and tags work inside the body; their output is **not** HTML-escaped, since it is D2 source (d2 escapes labels in the generated SVG).
 
 ### PHP
 
