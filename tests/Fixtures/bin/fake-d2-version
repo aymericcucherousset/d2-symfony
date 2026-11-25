@@ -1,0 +1,6 @@
+#!/bin/sh
+# Prints a fixed version and records each call in $D2_CALLS_FILE when set.
+if [ -n "$D2_CALLS_FILE" ]; then echo "$*" >> "$D2_CALLS_FILE"; fi
+if [ "$1" = "--version" ]; then echo "v9.9.9"; exit 0; fi
+cat > /dev/null
+printf '<svg>%s</svg>\n' "$*"
