@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: PHPUnit (PHP 8.2 lowest/highest deps, PHP 8.5), PHPStan at max level (with `phpstan-symfony` and `phpstan-phpunit`), PHP-CS-Fixer (`@Symfony`, `@Symfony:risky`), d2 binary installed for integration tests.
 - README with CI badges.
 - Core: immutable `Diagram` (non-empty D2 source + options) and `RenderOptions` (`theme`, `layout`, `pad`, `sketch`) value objects, with `toCliArguments()` and `fingerprint()` for cache keys.
+- Core: `Renderer` port (`render(Diagram): string`, returns SVG) and exception hierarchy: `D2Exception` marker interface implemented by `RenderException` (keeps the raw D2 error), `BinaryNotFoundException` and `InvalidArgumentException` (now thrown by `Diagram` and `RenderOptions`).
 
 ### Fixed
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aymericcucherousset\D2Symfony\Tests\Unit\Core;
 
 use Aymericcucherousset\D2Symfony\Core\Diagram;
+use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -39,7 +40,7 @@ final class DiagramTest extends TestCase
     #[DataProvider('emptySourceProvider')]
     public function testEmptySourceIsRejected(string $source): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         new Diagram($source);
     }
@@ -57,7 +58,7 @@ final class DiagramTest extends TestCase
 
     public function testWithSourceValidates(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         (new Diagram('a -> b'))->withSource(' ');
     }

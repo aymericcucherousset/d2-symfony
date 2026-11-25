@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Core;
 
+use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
+
 /**
  * Immutable set of options passed to the d2 renderer.
  *
@@ -21,15 +23,15 @@ final readonly class RenderOptions
         public bool $sketch = false,
     ) {
         if (null !== $theme && $theme < 0) {
-            throw new \InvalidArgumentException(\sprintf('The theme ID must be a positive integer, %d given.', $theme));
+            throw new InvalidArgumentException(\sprintf('The theme ID must be a positive integer, %d given.', $theme));
         }
 
         if (null !== $layout && 1 !== preg_match(self::LAYOUT_PATTERN, $layout)) {
-            throw new \InvalidArgumentException(\sprintf('The layout engine "%s" is invalid: only lowercase letters, digits, "-" and "_" are allowed.', $layout));
+            throw new InvalidArgumentException(\sprintf('The layout engine "%s" is invalid: only lowercase letters, digits, "-" and "_" are allowed.', $layout));
         }
 
         if (null !== $pad && $pad < 0) {
-            throw new \InvalidArgumentException(\sprintf('The padding must be a positive integer, %d given.', $pad));
+            throw new InvalidArgumentException(\sprintf('The padding must be a positive integer, %d given.', $pad));
         }
     }
 

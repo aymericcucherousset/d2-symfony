@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Core;
 
+use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
+
 /**
  * Immutable D2 diagram to render: its source and render options.
  */
@@ -14,7 +16,7 @@ final readonly class Diagram
         public RenderOptions $options = new RenderOptions(),
     ) {
         if ('' === trim($source)) {
-            throw new \InvalidArgumentException('The D2 source must not be empty.');
+            throw new InvalidArgumentException('The D2 source must not be empty.');
         }
     }
 
