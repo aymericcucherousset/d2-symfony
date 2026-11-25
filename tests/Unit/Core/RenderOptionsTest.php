@@ -134,4 +134,47 @@ final class RenderOptionsTest extends TestCase
 
         self::assertSame($fingerprints, array_unique($fingerprints));
     }
+
+    public function testMergeOverridesOnlyGivenOptions(): void
+    {
+        $options = new RenderOptions(theme: 1, layout: 'dagre', pad: 5);
+
+        self::assertEquals(new RenderOptions(theme: 1, layout: 'elk', pad: 5, sketch: true), $options->merge(['layout' => 'elk', 'sketch' => true]));
+        self::assertEquals($options, $options->merge([]));
+        self::assertEquals(new RenderOptions(theme: 1, layout: 'dagre', pad: 5), $options, 'The original is unchanged.');
+    }
+
+    public function testMergeWithNullResetsToD2Defaults(): void
+    {
+        $options = new RenderOptions(theme: 1, layout: 'elk', pad: 5, sketch: true);
+
+        self::assertEquals(new RenderOptions(), $options->merge(['theme' => null, 'layout' => null, 'pad' => null, 'sketch' => null]));
+    }
+
+    /**
+     * @return iterable<string, array{array<array-key, mixed>, string}>
+     */
+    public static function invalidMergeProvider(): iterable
+    {
+        yield 'unknown key' => [['them' => 1], 'Unknown D2 option(s) "them"'];
+        yield 'numeric key' => [[0 => 1], 'Unknown D2 option(s) "0"'];
+        yield 'string theme' => [['theme' => '200'], '"theme" must be an integer or null, string given'];
+        yield 'float pad' => [['pad' => 1.5], '"pad" must be an integer or null, float given'];
+        yield 'int layout' => [['layout' => 1], '"layout" must be a string or null, int given'];
+        yield 'int sketch' => [['sketch' => 1], '"sketch" must be a boolean or null, int given'];
+        yield 'invalid layout value' => [['layout' => 'ELK'], 'layout engine "ELK" is invalid'];
+        yield 'negative theme value' => [['theme' => -1], 'theme ID must be a positive integer'];
+    }
+
+    /**
+     * @param array<array-key, mixed> $options
+     */
+    #[DataProvider('invalidMergeProvider')]
+    public function testMergeRejectsInvalidOptions(array $options, string $message): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage($message);
+
+        (new RenderOptions())->merge($options);
+    }
 }

@@ -12,10 +12,12 @@ use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\RendererConsumer;
 use Nyholm\BundleTest\TestKernel;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Bundle\TwigBundle\TwigBundle;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\KernelInterface;
+use Twig\Environment;
 
 final class D2BundleKernelTest extends KernelTestCase
 {
@@ -63,6 +65,7 @@ final class D2BundleKernelTest extends KernelTestCase
         $kernel = parent::createKernel($options);
         self::assertInstanceOf(TestKernel::class, $kernel);
 
+        $kernel->addTestBundle(TwigBundle::class);
         $kernel->addTestBundle(D2Bundle::class);
         $kernel->addTestConfig(static function (ContainerBuilder $container): void {
             $container->register(RendererConsumer::class)->setAutowired(true)->setPublic(true);
@@ -139,5 +142,30 @@ final class D2BundleKernelTest extends KernelTestCase
                 $container->loadFromExtension('d2', ['defaults' => ['layout' => 'elk; rm -rf /']]);
             });
         }]);
+    }
+
+    public function testTwigFilterRendersSvgThroughConfiguredServices(): void
+    {
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('The fake d2 binary is a POSIX shell script.');
+        }
+
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', [
+                    'binary_path' => self::FAKE_D2,
+                    'defaults' => ['theme' => 200],
+                ]);
+            });
+        }]);
+
+        $twig = self::getContainer()->get('twig');
+        self::assertInstanceOf(Environment::class, $twig);
+
+        $output = $twig->createTemplate("<main>{{ 'a -> b'|d2({ sketch: true }) }}</main>")->render();
+
+        self::assertStringStartsWith('<main><svg>', $output);
+        self::assertStringContainsString("arg:--theme=200\narg:--sketch\n", $output);
+        self::assertStringContainsString("stdin:a -> b\n", $output);
     }
 }

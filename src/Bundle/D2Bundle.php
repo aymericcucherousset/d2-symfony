@@ -7,10 +7,15 @@ namespace Aymericcucherousset\D2Symfony\Bundle;
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
+use Aymericcucherousset\D2Symfony\Twig\D2Extension;
+use Aymericcucherousset\D2Symfony\Twig\D2Runtime;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
+use Twig\Environment;
+
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 /**
  * @phpstan-type D2Config array{
@@ -93,6 +98,15 @@ final class D2Bundle extends AbstractBundle
         $defaults = $config['defaults'];
         $services->set('d2.default_options', RenderOptions::class)
             ->args([$defaults['theme'], $defaults['layout'], $defaults['pad'], $defaults['sketch']]);
+
+        if (ContainerBuilder::willBeAvailable('twig/twig', Environment::class, ['aymericcucherousset/d2-symfony'])) {
+            $services->set('d2.twig.extension', D2Extension::class)
+                ->tag('twig.extension');
+
+            $services->set('d2.twig.runtime', D2Runtime::class)
+                ->args([service('d2.renderer'), service('d2.default_options')])
+                ->tag('twig.runtime');
+        }
     }
 
     private static function createRenderOptions(mixed $options): RenderOptions
@@ -101,20 +115,6 @@ final class D2Bundle extends AbstractBundle
             throw new \InvalidArgumentException('The default render options must be an array.');
         }
 
-        $theme = $options['theme'] ?? null;
-        $layout = $options['layout'] ?? null;
-        $pad = $options['pad'] ?? null;
-        $sketch = $options['sketch'] ?? false;
-
-        if (null !== $layout && !\is_string($layout)) {
-            throw new \InvalidArgumentException(\sprintf('The layout must be a string, %s given.', get_debug_type($layout)));
-        }
-
-        return new RenderOptions(
-            \is_int($theme) ? $theme : null,
-            $layout,
-            \is_int($pad) ? $pad : null,
-            true === $sketch,
-        );
+        return (new RenderOptions())->merge($options);
     }
 }

@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Core: `Renderer` port (`render(Diagram): string`, returns SVG) and exception hierarchy: `D2Exception` marker interface implemented by `RenderException` (keeps the raw D2 error), `BinaryNotFoundException` and `InvalidArgumentException` (now thrown by `Diagram` and `RenderOptions`).
 - Core: `BinaryRenderer`, rendering through the local `d2` binary with `symfony/process` (source on stdin, SVG on stdout, no temporary file), configurable binary path and timeout; failures raise `RenderException` with the raw stderr, a missing or non-executable binary raises `BinaryNotFoundException`.
 - Bundle: `d2` configuration (`binary_path`, `timeout`, `defaults.theme|layout|pad|sketch`, validated with the core rules), `BinaryRenderer` registered as `d2.renderer.binary` behind the `d2.renderer` alias and the `Renderer` autowiring alias, default options exposed as the `d2.default_options` service.
+- Core: `RenderOptions::merge(array)` to override options from arrays (unknown keys and wrong types rejected, `null` resets to the d2 default).
+- Twig: `|d2` filter (`{{ source|d2({ theme: 200, sketch: true }) }}`) rendering inline SVG through a lazily loaded runtime, using `d2.defaults` as base options; registered when Twig is installed.
 
 ### Fixed
 
