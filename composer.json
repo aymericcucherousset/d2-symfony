@@ -1,0 +1,56 @@
+{
+    "name": "aymericcucherousset/d2-symfony",
+    "description": "Render D2 diagrams (d2lang.com) in Symfony & Twig: local binary or Kroki, cached, profiler-ready.",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "keywords": [
+        "d2",
+        "d2lang",
+        "diagram",
+        "svg",
+        "symfony",
+        "symfony-bundle",
+        "twig",
+        "kroki"
+    ],
+    "homepage": "https://github.com/aymericcucherousset/d2-symfony",
+    "authors": [
+        {
+            "name": "Aymeric Cucherousset",
+            "homepage": "https://github.com/aymericcucherousset"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/aymericcucherousset/d2-symfony/issues",
+        "source": "https://github.com/aymericcucherousset/d2-symfony"
+    },
+    "require": {
+        "php": ">=8.2",
+        "symfony/config": "^6.4 || ^7.4 || ^8.0",
+        "symfony/dependency-injection": "^6.4 || ^7.4 || ^8.0",
+        "symfony/http-kernel": "^6.4 || ^7.4 || ^8.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Aymericcucherousset\\D2Symfony\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Aymericcucherousset\\D2Symfony\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.1.x-dev"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
