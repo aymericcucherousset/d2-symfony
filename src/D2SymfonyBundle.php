@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Aymericcucherousset\D2Symfony\Bundle;
+namespace Aymericcucherousset\D2Symfony;
 
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
@@ -24,12 +24,9 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
  *     defaults: array{theme: int|null, layout: string|null, pad: int|null, sketch: bool},
  * }
  */
-final class D2Bundle extends AbstractBundle
+final class D2SymfonyBundle extends AbstractBundle
 {
-    public function getPath(): string
-    {
-        return \dirname(__DIR__, 2);
-    }
+    protected string $extensionAlias = 'd2';
 
     public function configure(DefinitionConfigurator $definition): void
     {

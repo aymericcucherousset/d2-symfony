@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Tests\Unit\Bundle;
 
-use Aymericcucherousset\D2Symfony\Bundle\D2Bundle;
+use Aymericcucherousset\D2Symfony\D2SymfonyBundle;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
@@ -95,7 +95,7 @@ final class ConfigurationTest extends TestCase
      */
     private static function process(array $config): array
     {
-        $extension = (new D2Bundle())->getContainerExtension();
+        $extension = (new D2SymfonyBundle())->getContainerExtension();
         self::assertInstanceOf(ConfigurationExtensionInterface::class, $extension);
 
         $configuration = $extension->getConfiguration([], new ContainerBuilder());

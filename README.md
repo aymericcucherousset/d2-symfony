@@ -29,16 +29,9 @@ Write [D2](https://d2lang.com) diagrams as text in your Twig templates and get i
    composer require aymericcucherousset/d2-symfony
    ```
 
-2. Register it in `config/bundles.php` (a Flex recipe will do this automatically later):
+   With [Symfony Flex](https://symfony.com/doc/current/setup/flex.html), the bundle is registered automatically in `config/bundles.php`.
 
-   ```php
-   return [
-       // ...
-       Aymericcucherousset\D2Symfony\Bundle\D2Bundle::class => ['all' => true],
-   ];
-   ```
-
-3. Install the `d2` binary (see the [official instructions](https://d2lang.com/tour/install) for other methods):
+2. Install the `d2` binary (see the [official instructions](https://d2lang.com/tour/install) for other methods):
 
    ```bash
    curl -fsSL https://d2lang.com/install.sh | sh -s --
@@ -46,6 +39,17 @@ Write [D2](https://d2lang.com) diagrams as text in your Twig templates and get i
    ```
 
    The bundle looks for `d2` in your `PATH`. Automatic download of the binary is planned for v0.3.0.
+
+### Without Symfony Flex
+
+Register the bundle in `config/bundles.php`:
+
+```php
+return [
+    // ...
+    Aymericcucherousset\D2Symfony\D2SymfonyBundle::class => ['all' => true],
+];
+```
 
 ## Configuration
 
