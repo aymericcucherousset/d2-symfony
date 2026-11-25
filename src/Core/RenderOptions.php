@@ -15,6 +15,7 @@ use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
 final readonly class RenderOptions
 {
     private const LAYOUT_PATTERN = '/^[a-z0-9_-]+$/';
+    private const OPTION_NAMES = ['theme', 'layout', 'pad', 'sketch'];
 
     public function __construct(
         public ?int $theme = null,
@@ -56,6 +57,45 @@ final readonly class RenderOptions
     }
 
     /**
+     * Returns a copy with the given options overridden, e.g. from Twig or configuration arrays.
+     *
+     * Accepted keys are "theme", "layout", "pad" and "sketch"; a null value resets the
+     * option to the d2 default.
+     *
+     * @param array<array-key, mixed> $options
+     *
+     * @throws InvalidArgumentException on unknown keys, wrong types or invalid values
+     */
+    public function merge(array $options): self
+    {
+        $unknown = array_diff(array_map('strval', array_keys($options)), self::OPTION_NAMES);
+        if ([] !== $unknown) {
+            throw new InvalidArgumentException(\sprintf('Unknown D2 option(s) "%s"; allowed options are "%s".', implode('", "', $unknown), implode('", "', self::OPTION_NAMES)));
+        }
+
+        $theme = \array_key_exists('theme', $options) ? self::nullableInt($options, 'theme') : $this->theme;
+        $pad = \array_key_exists('pad', $options) ? self::nullableInt($options, 'pad') : $this->pad;
+        $layout = $this->layout;
+        $sketch = $this->sketch;
+
+        if (\array_key_exists('layout', $options)) {
+            $layout = $options['layout'];
+            if (null !== $layout && !\is_string($layout)) {
+                throw new InvalidArgumentException(\sprintf('The D2 option "layout" must be a string or null, %s given.', get_debug_type($layout)));
+            }
+        }
+
+        if (\array_key_exists('sketch', $options)) {
+            $sketch = $options['sketch'] ?? false;
+            if (!\is_bool($sketch)) {
+                throw new InvalidArgumentException(\sprintf('The D2 option "sketch" must be a boolean or null, %s given.', get_debug_type($sketch)));
+            }
+        }
+
+        return new self($theme, $layout, $pad, $sketch);
+    }
+
+    /**
      * Returns the d2 CLI flags matching these options, in a stable order.
      *
      * @return list<string>
@@ -89,5 +129,18 @@ final readonly class RenderOptions
     public function fingerprint(): string
     {
         return hash('sha256', implode("\0", $this->toCliArguments()));
+    }
+
+    /**
+     * @param array<array-key, mixed> $options
+     */
+    private static function nullableInt(array $options, string $name): ?int
+    {
+        $value = $options[$name];
+        if (null !== $value && !\is_int($value)) {
+            throw new InvalidArgumentException(\sprintf('The D2 option "%s" must be an integer or null, %s given.', $name, get_debug_type($value)));
+        }
+
+        return $value;
     }
 }

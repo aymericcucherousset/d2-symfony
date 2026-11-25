@@ -39,7 +39,12 @@
         "phpstan/phpstan-phpunit": "^2.0",
         "phpstan/phpstan-symfony": "^2.0",
         "phpunit/phpunit": "^11.5",
-        "symfony/framework-bundle": "^6.4 || ^7.4 || ^8.0"
+        "symfony/framework-bundle": "^6.4 || ^7.4 || ^8.0",
+        "symfony/twig-bundle": "^6.4 || ^7.4 || ^8.0",
+        "twig/twig": "^3.10"
+    },
+    "suggest": {
+        "symfony/twig-bundle": "To render diagrams in templates with the |d2 filter"
     },
     "autoload": {
         "psr-4": {
