@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aymericcucherousset\D2Symfony;
 
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
+use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
@@ -22,10 +23,13 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
  *     binary_path: string,
  *     timeout: int|float|null,
  *     defaults: array{theme: int|null, layout: string|null, pad: int|null, sketch: bool},
+ *     cache: array{enabled: bool, pool: string},
  * }
  */
 final class D2SymfonyBundle extends AbstractBundle
 {
+    private const CACHE_POOL = 'cache.d2';
+
     protected string $extensionAlias = 'd2';
 
     public function configure(DefinitionConfigurator $definition): void
@@ -71,8 +75,32 @@ final class D2SymfonyBundle extends AbstractBundle
                         })
                     ->end()
                 ->end()
+                ->arrayNode('cache')
+                    ->info('Cache rendered SVG so each diagram is rendered by d2 only once.')
+                    ->canBeDisabled()
+                    ->children()
+                        ->scalarNode('pool')
+                            ->info('PSR-6 cache pool service; "cache.d2" is created automatically with FrameworkBundle.')
+                            ->defaultValue(self::CACHE_POOL)
+                            ->cannotBeEmpty()
+                            ->validate()
+                                ->ifTrue(static fn (mixed $value): bool => !\is_string($value))
+                                ->thenInvalid('The cache pool must be a service ID, %s given.')
+                            ->end()
+                        ->end()
+                    ->end()
+                ->end()
             ->end()
         ;
+    }
+
+    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+    {
+        if ($builder->hasExtension('framework')) {
+            $builder->prependExtensionConfig('framework', [
+                'cache' => ['pools' => [self::CACHE_POOL => ['adapter' => 'cache.app']]],
+            ]);
+        }
     }
 
     /**
@@ -89,7 +117,14 @@ final class D2SymfonyBundle extends AbstractBundle
                 null === $config['timeout'] ? null : (float) $config['timeout'],
             ]);
 
-        $services->alias('d2.renderer', 'd2.renderer.binary');
+        if ($config['cache']['enabled']) {
+            $services->set('d2.renderer.cached', CachedRenderer::class)
+                ->args([service('d2.renderer.binary'), service($config['cache']['pool'])]);
+
+            $services->alias('d2.renderer', 'd2.renderer.cached');
+        } else {
+            $services->alias('d2.renderer', 'd2.renderer.binary');
+        }
         $services->alias(Renderer::class, 'd2.renderer');
 
         $defaults = $config['defaults'];

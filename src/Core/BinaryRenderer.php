@@ -18,9 +18,10 @@ use Symfony\Component\Process\Process;
  * The source is piped through stdin and the SVG read from stdout
  * (`d2 [options] - -`): no temporary file is written.
  */
-final class BinaryRenderer implements Renderer
+final class BinaryRenderer implements VersionAwareRenderer
 {
     private ?string $resolvedBinary = null;
+    private ?string $version = null;
 
     /**
      * @param string     $binary  name of the d2 executable looked up in the PATH, or path to it
@@ -41,13 +42,30 @@ final class BinaryRenderer implements Renderer
 
     public function render(Diagram $diagram): string
     {
-        $process = new Process(
-            [$this->resolveBinary(), ...$diagram->options->toCliArguments(), '-', '-'],
-            null,
-            null,
-            $diagram->source,
-            $this->timeout,
-        );
+        return $this->run([...$diagram->options->toCliArguments(), '-', '-'], $diagram->source);
+    }
+
+    /**
+     * Returns the version reported by `d2 --version` (e.g. "v0.9.0"), computed once per instance.
+     */
+    public function getVersion(): string
+    {
+        return $this->version ??= trim($this->run(['--version']));
+    }
+
+    /**
+     * Runs the d2 binary and returns its standard output.
+     *
+     * @param list<string> $arguments
+     *
+     * @return non-empty-string
+     *
+     * @throws RenderException
+     * @throws BinaryNotFoundException
+     */
+    private function run(array $arguments, ?string $input = null): string
+    {
+        $process = new Process([$this->resolveBinary(), ...$arguments], null, null, $input, $this->timeout);
 
         try {
             $process->run();
@@ -68,13 +86,13 @@ final class BinaryRenderer implements Renderer
             throw RenderException::fromD2Error($process->getErrorOutput());
         }
 
-        $svg = $process->getOutput();
+        $output = $process->getOutput();
 
-        if ('' === trim($svg)) {
+        if ('' === trim($output)) {
             throw RenderException::fromD2Error($process->getErrorOutput());
         }
 
-        return $svg;
+        return $output;
     }
 
     private function resolveBinary(): string

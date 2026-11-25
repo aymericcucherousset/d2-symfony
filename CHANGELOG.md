@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Core: `CachedRenderer`, a decorator caching rendered SVG in any PSR-6 pool; the key covers the source, the options and the engine version, and failed renders are never cached.
+- Core: `VersionAwareRenderer` interface; `BinaryRenderer::getVersion()` runs `d2 --version` once per instance.
+- Bundle: `d2.cache.enabled` (default `true`) and `d2.cache.pool` (default `cache.d2`, created automatically with FrameworkBundle); `d2.renderer` now points to the cached renderer.
+
 ## [0.1.0] - 2026-11-25
 
 ### Added

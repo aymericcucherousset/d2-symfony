@@ -61,4 +61,9 @@ final class BinaryRendererTest extends TestCase
 
         self::assertSame($before, scandir($cwd));
     }
+
+    public function testItReportsTheD2Version(): void
+    {
+        self::assertMatchesRegularExpression('/^v?\d+\.\d+\.\d+/', $this->renderer->getVersion());
+    }
 }

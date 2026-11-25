@@ -70,6 +70,11 @@ d2:
         layout: ~     # layout engine: dagre (d2 default) or elk
         pad: ~        # padding around the diagram, in pixels (d2 default: 100)
         sketch: false # hand-drawn look
+
+    # Cache rendered SVG (set to false to disable).
+    cache:
+        enabled: true
+        pool: cache.d2 # PSR-6 pool service, created automatically
 ```
 
 Invalid values (negative padding, unknown layout format, unknown keys…) are rejected when the container is built.
@@ -127,6 +132,16 @@ final class DiagramController
         return new Response($svg, headers: ['Content-Type' => 'image/svg+xml']);
     }
 }
+```
+
+### Caching
+
+Rendered SVG is cached in the `cache.d2` pool (backed by `cache.app`), so each diagram is rendered by d2 only once. The cache key covers the D2 source, the options and the d2 version: diagrams are rendered again after a d2 upgrade (the version is checked every 5 minutes). To use another backend, point `d2.cache.pool` to any PSR-6 pool, or configure `cache.d2` under `framework.cache.pools`.
+
+Clear it with:
+
+```bash
+bin/console cache:pool:clear cache.d2
 ```
 
 ### Errors

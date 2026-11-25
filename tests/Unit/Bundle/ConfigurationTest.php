@@ -21,6 +21,7 @@ final class ConfigurationTest extends TestCase
             'binary_path' => 'd2',
             'timeout' => 60.0,
             'defaults' => ['theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false],
+            'cache' => ['enabled' => true, 'pool' => 'cache.d2'],
         ], self::process([]));
     }
 
@@ -30,11 +31,19 @@ final class ConfigurationTest extends TestCase
             'binary_path' => '/usr/local/bin/d2',
             'timeout' => 12.5,
             'defaults' => ['theme' => 200, 'layout' => 'elk', 'pad' => 0, 'sketch' => true],
+            'cache' => ['pool' => 'cache.redis', 'enabled' => true],
         ], self::process([
             'binary_path' => '/usr/local/bin/d2',
             'timeout' => 12.5,
             'defaults' => ['theme' => 200, 'layout' => 'elk', 'pad' => 0, 'sketch' => true],
+            'cache' => ['pool' => 'cache.redis'],
         ]));
+    }
+
+    public function testCacheCanBeDisabled(): void
+    {
+        self::assertSame(['enabled' => false, 'pool' => 'cache.d2'], self::process(['cache' => false])['cache']);
+        self::assertSame(['enabled' => false, 'pool' => 'cache.d2'], self::process(['cache' => ['enabled' => false]])['cache']);
     }
 
     public function testTimeoutAcceptsIntegersAndNull(): void
@@ -73,6 +82,8 @@ final class ConfigurationTest extends TestCase
         yield 'layout with flag' => [['defaults' => ['layout' => 'elk --foo']]];
         yield 'non-string layout' => [['defaults' => ['layout' => ['elk']]]];
         yield 'string sketch' => [['defaults' => ['sketch' => 'yes']]];
+        yield 'empty cache pool' => [['cache' => ['pool' => '']]];
+        yield 'non-string cache pool' => [['cache' => ['pool' => 42]]];
         yield 'unknown option' => [['renderer' => 'kroki']];
         yield 'unknown default' => [['defaults' => ['scale' => 2]]];
     }

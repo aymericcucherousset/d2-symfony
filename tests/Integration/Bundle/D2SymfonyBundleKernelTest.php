@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Aymericcucherousset\D2Symfony\Tests\Integration\Bundle;
 
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
+use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
 use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\D2SymfonyBundle;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\RendererConsumer;
 use Nyholm\BundleTest\TestKernel;
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\TwigBundle\TwigBundle;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
@@ -22,6 +24,7 @@ use Twig\Environment;
 final class D2SymfonyBundleKernelTest extends KernelTestCase
 {
     private const FAKE_D2 = __DIR__.'/../../Fixtures/bin/fake-d2-echo';
+    private const FAKE_D2_VERSION = __DIR__.'/../../Fixtures/bin/fake-d2-version';
 
     /** @var callable|null */
     private $initialExceptionHandler;
@@ -91,9 +94,59 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         self::bootKernel();
         $container = self::getContainer();
 
-        self::assertInstanceOf(BinaryRenderer::class, $container->get(Renderer::class));
+        self::assertInstanceOf(CachedRenderer::class, $container->get(Renderer::class));
         self::assertSame($container->get(Renderer::class), $container->get('d2.renderer'));
+        self::assertInstanceOf(BinaryRenderer::class, $container->get('d2.renderer.binary'));
+        self::assertInstanceOf(CacheItemPoolInterface::class, $container->get('cache.d2'));
         self::assertEquals(new RenderOptions(), $container->get('d2.default_options'));
+    }
+
+    public function testCacheCanBeDisabled(): void
+    {
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', ['cache' => false]);
+            });
+        }]);
+
+        self::assertInstanceOf(BinaryRenderer::class, self::getContainer()->get(Renderer::class));
+    }
+
+    public function testRenderedDiagramsAreCachedInTheD2Pool(): void
+    {
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('The fake d2 binary is a POSIX shell script.');
+        }
+
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', ['binary_path' => self::FAKE_D2_VERSION]);
+            });
+        }]);
+        $container = self::getContainer();
+
+        $pool = $container->get('cache.d2');
+        self::assertInstanceOf(CacheItemPoolInterface::class, $pool);
+        $pool->clear();
+
+        $renderer = $container->get(Renderer::class);
+        self::assertInstanceOf(Renderer::class, $renderer);
+
+        $callsFile = tempnam(sys_get_temp_dir(), 'd2-calls-');
+        self::assertIsString($callsFile);
+        // Symfony Process passes $_ENV (not putenv() values) to child processes.
+        $_ENV['D2_CALLS_FILE'] = $callsFile;
+
+        try {
+            $svg = $renderer->render(new Diagram('a -> b'));
+            self::assertSame($svg, $renderer->render(new Diagram('a -> b')));
+
+            // One call for the version, one for the first render; the second render is a cache hit.
+            self::assertSame(['--version', '- -'], file($callsFile, \FILE_IGNORE_NEW_LINES));
+        } finally {
+            unset($_ENV['D2_CALLS_FILE']);
+            unlink($callsFile);
+        }
     }
 
     public function testRendererCanBeAutowired(): void
@@ -103,7 +156,7 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         $consumer = self::getContainer()->get(RendererConsumer::class);
 
         self::assertInstanceOf(RendererConsumer::class, $consumer);
-        self::assertInstanceOf(BinaryRenderer::class, $consumer->renderer);
+        self::assertInstanceOf(CachedRenderer::class, $consumer->renderer);
     }
 
     public function testConfigurationIsAppliedToServices(): void

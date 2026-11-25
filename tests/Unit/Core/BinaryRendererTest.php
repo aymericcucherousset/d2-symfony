@@ -119,4 +119,37 @@ final class BinaryRendererTest extends TestCase
 
         self::assertStringStartsWith('<svg>', $renderer->render(new Diagram('a')));
     }
+
+    public function testGetVersionRunsTheBinaryOnce(): void
+    {
+        $callsFile = tempnam(sys_get_temp_dir(), 'd2-calls-');
+        self::assertIsString($callsFile);
+        // Symfony Process passes $_ENV (not putenv() values) to child processes.
+        $_ENV['D2_CALLS_FILE'] = $callsFile;
+
+        try {
+            $renderer = new BinaryRenderer(self::BIN_DIR.'/fake-d2-version');
+
+            self::assertSame('v9.9.9', $renderer->getVersion());
+            self::assertSame('v9.9.9', $renderer->getVersion());
+            self::assertSame(['--version'], file($callsFile, \FILE_IGNORE_NEW_LINES));
+        } finally {
+            unset($_ENV['D2_CALLS_FILE']);
+            unlink($callsFile);
+        }
+    }
+
+    public function testGetVersionFailureThrowsRenderException(): void
+    {
+        $this->expectException(RenderException::class);
+
+        (new BinaryRenderer(self::BIN_DIR.'/fake-d2-fail'))->getVersion();
+    }
+
+    public function testGetVersionWithMissingBinaryThrowsBinaryNotFoundException(): void
+    {
+        $this->expectException(BinaryNotFoundException::class);
+
+        (new BinaryRenderer(self::BIN_DIR.'/does-not-exist'))->getVersion();
+    }
 }
