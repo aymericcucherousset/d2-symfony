@@ -35,7 +35,8 @@ final class D2TokenParser extends AbstractTokenParser
         $body = $this->parser->subparse([$this, 'decideD2End'], true);
         $stream->expect(Token::BLOCK_END_TYPE);
 
-        return new D2Node(new AutoEscapeNode(false, $body, $lineno), $options, $lineno);
+        // Twig drops the newline following "%}", so the body starts on the line of its first node.
+        return new D2Node(new AutoEscapeNode(false, $body, $lineno), $options, $lineno, $body->getTemplateLine());
     }
 
     public function decideD2End(Token $token): bool

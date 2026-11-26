@@ -93,8 +93,8 @@ final class D2TokenParserTest extends TestCase
 
         $php = $twig->compileSource($twig->getLoader()->getSourceContext('page'));
 
-        self::assertStringContainsString('$this->env->getRuntime("Aymericcucherousset\\\\D2Symfony\\\\Twig\\\\D2Runtime")->render($', $php);
-        self::assertStringContainsString(', ["pad" => 1]);', $php);
+        self::assertStringContainsString('$this->env->getRuntime("Aymericcucherousset\\\\D2Symfony\\\\Twig\\\\D2Runtime")->renderTag($', $php);
+        self::assertStringContainsString(', ["pad" => 1], 1);', $php);
     }
 
     /**

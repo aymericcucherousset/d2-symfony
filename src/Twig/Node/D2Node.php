@@ -17,14 +17,17 @@ use Twig\Node\Node;
 #[YieldReady]
 final class D2Node extends Node
 {
-    public function __construct(Node $body, ?AbstractExpression $options, int $lineno)
+    /**
+     * @param int $bodyLine template line where the D2 source starts
+     */
+    public function __construct(Node $body, ?AbstractExpression $options, int $lineno, int $bodyLine)
     {
         $nodes = ['body' => $body];
         if (null !== $options) {
             $nodes['options'] = $options;
         }
 
-        parent::__construct($nodes, [], $lineno);
+        parent::__construct($nodes, ['body_line' => $bodyLine], $lineno);
     }
 
     public function compile(Compiler $compiler): void
@@ -44,7 +47,7 @@ final class D2Node extends Node
             ->write($compiler->getEnvironment()->useYield() ? 'yield ' : 'echo ')
             ->raw('$this->env->getRuntime(')
             ->string(D2Runtime::class)
-            ->raw(\sprintf(')->render($%s, ', $source))
+            ->raw(\sprintf(')->renderTag($%s, ', $source))
         ;
 
         if ($this->hasNode('options')) {
@@ -53,6 +56,6 @@ final class D2Node extends Node
             $compiler->raw('[]');
         }
 
-        $compiler->raw(");\n");
+        $compiler->raw(', ')->repr($this->getAttribute('body_line'))->raw(");\n");
     }
 }

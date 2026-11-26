@@ -163,11 +163,17 @@ Every exception thrown by the bundle implements `Aymericcucherousset\D2Symfony\C
 
 | Exception | Thrown when |
 | --- | --- |
-| `RenderException` | d2 rejects the source or rendering fails (timeout…); `getD2Error()` returns the raw d2 error output |
+| `RenderException` | d2 rejects the source or rendering fails (timeout…); `getD2Line()` / `getD2Column()` locate the first D2 error, `getD2Errors()` lists them all, `getD2Error()` returns the raw d2 output |
 | `BinaryNotFoundException` | the `d2` binary is missing or not executable |
 | `InvalidArgumentException` | a diagram or an option is invalid (empty source, unknown option…) |
 
-In templates, Twig wraps them in a `Twig\Error\RuntimeError` pointing to the template line.
+In templates, Twig wraps them in a `Twig\Error\RuntimeError` pointing to the template line. For the `{% d2 %}` tag, a D2 syntax error points to the template line of the faulty D2 line, so the Symfony error page highlights it:
+
+```
+D2 syntax error at line 2, column 4: maps must be terminated with } in "page.html.twig" at line 14
+```
+
+(The mapping is exact for static bodies; Twig expressions printing several lines shift the lines after them.)
 
 ## Roadmap
 

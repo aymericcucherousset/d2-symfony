@@ -53,8 +53,10 @@ final class BinaryRendererTest extends TestCase
             $renderer->render(new Diagram('a -> {'));
             self::fail('A RenderException was expected.');
         } catch (RenderException $e) {
-            self::assertSame("err: failed to compile -: 1:4: unexpected text after map key\n", $e->getD2Error());
-            self::assertStringContainsString('1:4: unexpected text after map key', $e->getMessage());
+            self::assertSame("err: failed to compile -: -:1:4: unexpected text after map key\n", $e->getD2Error());
+            self::assertSame('D2 syntax error at line 1, column 4: unexpected text after map key', $e->getMessage());
+            self::assertSame(1, $e->getD2Line());
+            self::assertSame(4, $e->getD2Column());
         }
     }
 
