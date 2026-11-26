@@ -62,7 +62,7 @@ final class BinaryDownloader
      */
     public function getBinaryPath(): string
     {
-        return $this->versionDir().\DIRECTORY_SEPARATOR.$this->getPlatform()->binaryName();
+        return $this->versionDir().'/'.$this->getPlatform()->binaryName();
     }
 
     public function isInstalled(): bool
@@ -73,7 +73,8 @@ final class BinaryDownloader
             return false;
         }
 
-        return is_file($path) && is_executable($path);
+        // Windows has no executable bit: is_executable() only accepts known extensions there.
+        return is_file($path) && ('\\' === \DIRECTORY_SEPARATOR || is_executable($path));
     }
 
     /**
@@ -102,7 +103,7 @@ final class BinaryDownloader
             throw new DownloadException(\sprintf('Unable to create the directory "%s".', $dir));
         }
 
-        $archive = $dir.\DIRECTORY_SEPARATOR.'.download-'.bin2hex(random_bytes(6)).'.tar.gz';
+        $archive = $dir.'/.download-'.bin2hex(random_bytes(6)).'.tar.gz';
         $extractDir = $archive.'.extracted';
 
         try {
@@ -120,7 +121,7 @@ final class BinaryDownloader
                 throw new DownloadException(\sprintf('Unable to extract "%s" from "%s": %s', $entry, $asset, $e->getMessage()), 0, $e);
             }
 
-            $extracted = $extractDir.\DIRECTORY_SEPARATOR.$entry;
+            $extracted = $extractDir.'/'.$entry;
             if (!is_file($extracted) || !@rename($extracted, $binaryPath) || !@chmod($binaryPath, 0o755)) {
                 throw new DownloadException(\sprintf('Unable to install the d2 binary to "%s".', $binaryPath));
             }
@@ -183,7 +184,8 @@ final class BinaryDownloader
 
     private function versionDir(): string
     {
-        return rtrim($this->installDir, '/\\').\DIRECTORY_SEPARATOR.$this->version;
+        // "/" works on every OS and matches the path the bundle passes to BinaryRenderer.
+        return rtrim($this->installDir, '/\\').'/'.$this->version;
     }
 
     private function client(): HttpClientInterface

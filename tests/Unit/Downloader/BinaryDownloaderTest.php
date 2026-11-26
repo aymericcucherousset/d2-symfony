@@ -41,7 +41,9 @@ final class BinaryDownloaderTest extends TestCase
         self::assertSame($this->dir.'/install/v9.9.9/d2', $path);
         self::assertSame($path, $downloader->getBinaryPath());
         self::assertSame(FakeD2Release::BINARY, file_get_contents($path));
-        self::assertTrue(is_executable($path));
+        if ('\\' !== \DIRECTORY_SEPARATOR) {
+            self::assertTrue(is_executable($path));
+        }
         self::assertTrue($downloader->isInstalled());
         self::assertSame([
             'https://example.com/releases/v9.9.9/SHA256SUMS',

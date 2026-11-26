@@ -122,7 +122,8 @@ final class BinaryRenderer implements VersionAwareRenderer
     private static function find(string $binary): ?string
     {
         if (str_contains($binary, '/') || str_contains($binary, \DIRECTORY_SEPARATOR)) {
-            return is_file($binary) && is_executable($binary) ? $binary : null;
+            // Windows has no executable bit: is_executable() only accepts known extensions there.
+            return is_file($binary) && ('\\' === \DIRECTORY_SEPARATOR || is_executable($binary)) ? $binary : null;
         }
 
         return (new ExecutableFinder())->find($binary);
