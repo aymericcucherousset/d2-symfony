@@ -75,6 +75,10 @@ d2:
     cache:
         enabled: true
         pool: cache.d2 # PSR-6 pool service, created automatically
+
+    twig:
+        # Render static {% d2 %} tags when templates are compiled; ~ = when kernel.debug is false.
+        prerender_static: ~
 ```
 
 Invalid values (negative padding, unknown layout format, unknown keys…) are rejected when the container is built.
@@ -155,6 +159,20 @@ Clear it with:
 
 ```bash
 bin/console cache:pool:clear cache.d2
+```
+
+#### Pre-rendering static diagrams
+
+When `kernel.debug` is false (production), `{% d2 %}` tags whose body and options are constant are rendered once, when the template is compiled, and the SVG is embedded in the compiled template. Since `bin/console cache:warmup` compiles every template, static diagrams then never call d2 at runtime, even with an empty cache.
+
+A diagram is static when its body contains no Twig expression or tag and its options are a literal hash (`{% d2 with { theme: 200 } %}`). Diagrams that cannot be rendered at compile time (syntax error, d2 missing on the build machine…) are rendered at runtime as usual.
+
+Pre-rendering is disabled in debug mode, as compiled templates outlive changes to the `d2` configuration there. Force it either way with:
+
+```yaml
+d2:
+    twig:
+        prerender_static: true # or false; ~ (default) = enabled when kernel.debug is false
 ```
 
 ### Errors

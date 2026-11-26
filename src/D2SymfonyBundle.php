@@ -24,6 +24,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
  *     timeout: int|float|null,
  *     defaults: array{theme: int|null, layout: string|null, pad: int|null, sketch: bool},
  *     cache: array{enabled: bool, pool: string},
+ *     twig: array{prerender_static: bool|null},
  * }
  */
 final class D2SymfonyBundle extends AbstractBundle
@@ -90,6 +91,19 @@ final class D2SymfonyBundle extends AbstractBundle
                         ->end()
                     ->end()
                 ->end()
+                ->arrayNode('twig')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('prerender_static')
+                            ->info('Render {% d2 %} tags with a constant body when templates are compiled (cache:warmup); null enables it when kernel.debug is false.')
+                            ->defaultNull()
+                            ->validate()
+                                ->ifTrue(static fn (mixed $value): bool => null !== $value && !\is_bool($value))
+                                ->thenInvalid('The prerender_static option must be a boolean or null, %s given.')
+                            ->end()
+                        ->end()
+                    ->end()
+                ->end()
             ->end()
         ;
     }
@@ -133,6 +147,7 @@ final class D2SymfonyBundle extends AbstractBundle
 
         if (ContainerBuilder::willBeAvailable('twig/twig', Environment::class, ['aymericcucherousset/d2-symfony'])) {
             $services->set('d2.twig.extension', D2Extension::class)
+                ->args([$config['twig']['prerender_static'] ?? !$builder->getParameter('kernel.debug')])
                 ->tag('twig.extension');
 
             $services->set('d2.twig.runtime', D2Runtime::class)

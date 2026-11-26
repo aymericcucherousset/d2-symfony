@@ -22,6 +22,7 @@ final class ConfigurationTest extends TestCase
             'timeout' => 60.0,
             'defaults' => ['theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false],
             'cache' => ['enabled' => true, 'pool' => 'cache.d2'],
+            'twig' => ['prerender_static' => null],
         ], self::process([]));
     }
 
@@ -32,12 +33,20 @@ final class ConfigurationTest extends TestCase
             'timeout' => 12.5,
             'defaults' => ['theme' => 200, 'layout' => 'elk', 'pad' => 0, 'sketch' => true],
             'cache' => ['pool' => 'cache.redis', 'enabled' => true],
+            'twig' => ['prerender_static' => false],
         ], self::process([
             'binary_path' => '/usr/local/bin/d2',
             'timeout' => 12.5,
             'defaults' => ['theme' => 200, 'layout' => 'elk', 'pad' => 0, 'sketch' => true],
             'cache' => ['pool' => 'cache.redis'],
+            'twig' => ['prerender_static' => false],
         ]));
+    }
+
+    public function testPrerenderStaticAcceptsBooleansAndNull(): void
+    {
+        self::assertSame(['prerender_static' => true], self::process(['twig' => ['prerender_static' => true]])['twig']);
+        self::assertSame(['prerender_static' => null], self::process(['twig' => ['prerender_static' => null]])['twig']);
     }
 
     public function testCacheCanBeDisabled(): void
@@ -84,6 +93,7 @@ final class ConfigurationTest extends TestCase
         yield 'string sketch' => [['defaults' => ['sketch' => 'yes']]];
         yield 'empty cache pool' => [['cache' => ['pool' => '']]];
         yield 'non-string cache pool' => [['cache' => ['pool' => 42]]];
+        yield 'string prerender_static' => [['twig' => ['prerender_static' => 'yes']]];
         yield 'unknown option' => [['renderer' => 'kroki']];
         yield 'unknown default' => [['defaults' => ['scale' => 2]]];
     }

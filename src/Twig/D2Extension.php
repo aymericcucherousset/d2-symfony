@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Twig;
 
+use Aymericcucherousset\D2Symfony\Twig\NodeVisitor\PrerenderStaticDiagramsNodeVisitor;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 
@@ -15,6 +16,13 @@ use Twig\TwigFilter;
  */
 final class D2Extension extends AbstractExtension
 {
+    /**
+     * @param bool $prerenderStaticDiagrams render `{% d2 %}` tags with a constant body when templates are compiled
+     */
+    public function __construct(private readonly bool $prerenderStaticDiagrams = false)
+    {
+    }
+
     public function getFilters(): array
     {
         return [
@@ -25,5 +33,10 @@ final class D2Extension extends AbstractExtension
     public function getTokenParsers(): array
     {
         return [new D2TokenParser()];
+    }
+
+    public function getNodeVisitors(): array
+    {
+        return $this->prerenderStaticDiagrams ? [new PrerenderStaticDiagramsNodeVisitor()] : [];
     }
 }

@@ -11,6 +11,7 @@ use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\D2SymfonyBundle;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\RendererConsumer;
+use Aymericcucherousset\D2Symfony\Twig\D2Extension;
 use Nyholm\BundleTest\TestKernel;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -18,6 +19,7 @@ use Symfony\Bundle\TwigBundle\TwigBundle;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerAggregate;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Twig\Environment;
 
@@ -25,6 +27,7 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
 {
     private const FAKE_D2 = __DIR__.'/../../Fixtures/bin/fake-d2-echo';
     private const FAKE_D2_VERSION = __DIR__.'/../../Fixtures/bin/fake-d2-version';
+    private const TEMPLATES = __DIR__.'/../../Fixtures/templates';
 
     /** @var callable|null */
     private $initialExceptionHandler;
@@ -242,5 +245,60 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         self::assertStringStartsWith('<main><svg>', $output);
         self::assertStringContainsString("arg:--layout=elk\n", $output);
         self::assertStringContainsString("stdin:user -> app\n", $output);
+    }
+
+    public function testStaticDiagramsNeverCallTheBinaryAfterWarmupInProduction(): void
+    {
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('The fake d2 binary is a POSIX shell script.');
+        }
+
+        self::bootKernel(['debug' => false, 'config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', ['binary_path' => self::FAKE_D2_VERSION]);
+                $container->loadFromExtension('twig', ['default_path' => self::TEMPLATES]);
+            });
+        }]);
+        $container = self::getContainer();
+
+        // Same as bin/console cache:warmup: optional warmers (like Twig templates) included.
+        $warmer = $container->get('cache_warmer');
+        self::assertInstanceOf(CacheWarmerAggregate::class, $warmer);
+        $warmer->enableOptionalWarmers();
+        $kernel = self::$kernel;
+        self::assertNotNull($kernel);
+        $warmer->warmUp($kernel->getCacheDir(), $kernel->getBuildDir());
+
+        $pool = $container->get('cache.d2');
+        self::assertInstanceOf(CacheItemPoolInterface::class, $pool);
+        $pool->clear();
+
+        $twig = $container->get('twig');
+        self::assertInstanceOf(Environment::class, $twig);
+
+        $callsFile = tempnam(sys_get_temp_dir(), 'd2-calls-');
+        self::assertIsString($callsFile);
+        // Symfony Process passes $_ENV (not putenv() values) to child processes.
+        $_ENV['D2_CALLS_FILE'] = $callsFile;
+
+        try {
+            for ($i = 0; $i < 3; ++$i) {
+                self::assertStringContainsString('<svg>--sketch - -</svg>', $twig->render('static.html.twig'));
+            }
+
+            self::assertSame('', file_get_contents($callsFile), 'The d2 binary must not be called after warmup.');
+        } finally {
+            unset($_ENV['D2_CALLS_FILE']);
+            unlink($callsFile);
+        }
+    }
+
+    public function testStaticDiagramsAreNotPrerenderedInDebug(): void
+    {
+        self::bootKernel(['debug' => true]);
+
+        $extension = self::getContainer()->get('d2.twig.extension');
+        self::assertInstanceOf(D2Extension::class, $extension);
+        self::assertSame([], $extension->getNodeVisitors());
     }
 }
