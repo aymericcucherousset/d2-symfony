@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `bin/console d2:download` (`--force`) downloads the d2 binary for the current platform (Linux, macOS, Windows × amd64, arm64) from the terrastruct/d2 GitHub releases, verifies its SHA-256 checksum against the published `SHA256SUMS` and installs it in `var/d2/<version>/`.
+- `Downloader\Platform` (OS and architecture detection, release asset names) and `Downloader\BinaryDownloader`; `UnsupportedPlatformException`, `DownloadException` and `ChecksumMismatchException` implement `D2Exception`.
+- Bundle: `d2.binary_version` (pinned to `v0.9.0`, the version tested in CI) and `d2.install_dir` (default `%kernel.project_dir%/var/d2`).
+- Core: `BinaryRenderer` accepts a list of candidate binaries tried in order, and a hint shown when none is found; `BinaryNotFoundException::getCandidates()`.
+
+### Changed
+
+- `d2.binary_path` now defaults to `null`: the binary installed by `d2:download` is used, then `d2` from the `PATH` (as before). An explicit `binary_path` takes precedence.
+- The "binary not found" error suggests running `bin/console d2:download`.
+- `symfony/http-client` and `symfony/console` are now required.
+
 ## [0.2.0] - 2026-11-26
 
 ### Added

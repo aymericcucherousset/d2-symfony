@@ -18,7 +18,9 @@ final class ConfigurationTest extends TestCase
     public function testDefaultConfiguration(): void
     {
         self::assertSame([
-            'binary_path' => 'd2',
+            'binary_path' => null,
+            'binary_version' => 'v0.9.0',
+            'install_dir' => '%kernel.project_dir%/var/d2',
             'timeout' => 60.0,
             'defaults' => ['theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false],
             'cache' => ['enabled' => true, 'pool' => 'cache.d2'],
@@ -30,12 +32,16 @@ final class ConfigurationTest extends TestCase
     {
         self::assertSame([
             'binary_path' => '/usr/local/bin/d2',
+            'binary_version' => '0.8.1',
+            'install_dir' => '/opt/d2',
             'timeout' => 12.5,
             'defaults' => ['theme' => 200, 'layout' => 'elk', 'pad' => 0, 'sketch' => true],
             'cache' => ['pool' => 'cache.redis', 'enabled' => true],
             'twig' => ['prerender_static' => false],
         ], self::process([
             'binary_path' => '/usr/local/bin/d2',
+            'binary_version' => '0.8.1',
+            'install_dir' => '/opt/d2',
             'timeout' => 12.5,
             'defaults' => ['theme' => 200, 'layout' => 'elk', 'pad' => 0, 'sketch' => true],
             'cache' => ['pool' => 'cache.redis'],
@@ -79,7 +85,9 @@ final class ConfigurationTest extends TestCase
     public static function invalidConfigurationProvider(): iterable
     {
         yield 'empty binary path' => [['binary_path' => '']];
-        yield 'null binary path' => [['binary_path' => null]];
+        yield 'invalid binary version' => [['binary_version' => 'latest']];
+        yield 'partial binary version' => [['binary_version' => 'v0.9']];
+        yield 'empty install dir' => [['install_dir' => '']];
         yield 'non-string binary path' => [['binary_path' => 42]];
         yield 'zero timeout' => [['timeout' => 0]];
         yield 'negative timeout' => [['timeout' => -1.5]];

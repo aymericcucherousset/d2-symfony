@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony;
 
+use Aymericcucherousset\D2Symfony\Command\DownloadCommand;
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
+use Aymericcucherousset\D2Symfony\Downloader\BinaryDownloader;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
 use Aymericcucherousset\D2Symfony\Twig\D2Runtime;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
@@ -20,7 +22,9 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 /**
  * @phpstan-type D2Config array{
- *     binary_path: string,
+ *     binary_path: string|null,
+ *     binary_version: string,
+ *     install_dir: string,
  *     timeout: int|float|null,
  *     defaults: array{theme: int|null, layout: string|null, pad: int|null, sketch: bool},
  *     cache: array{enabled: bool, pool: string},
@@ -38,13 +42,25 @@ final class D2SymfonyBundle extends AbstractBundle
         $definition->rootNode()
             ->children()
                 ->scalarNode('binary_path')
-                    ->info('Name of the d2 executable looked up in the PATH, or path to it.')
-                    ->defaultValue('d2')
-                    ->cannotBeEmpty()
+                    ->info('Name of the d2 executable looked up in the PATH, or path to it; null uses the binary installed by d2:download, then "d2" from the PATH.')
+                    ->defaultNull()
                     ->validate()
-                        ->ifTrue(static fn (mixed $value): bool => !\is_string($value))
-                        ->thenInvalid('The d2 binary path must be a string, %s given.')
+                        ->ifTrue(static fn (mixed $value): bool => null !== $value && (!\is_string($value) || '' === $value))
+                        ->thenInvalid('The d2 binary path must be a non-empty string or null, %s given.')
                     ->end()
+                ->end()
+                ->scalarNode('binary_version')
+                    ->info('Version of d2 installed by the d2:download command.')
+                    ->defaultValue(BinaryDownloader::DEFAULT_VERSION)
+                    ->validate()
+                        ->ifTrue(static fn (mixed $value): bool => !\is_string($value) || 1 !== preg_match('/^v?\d+\.\d+\.\d+$/', $value))
+                        ->thenInvalid('The d2 version must look like "v0.9.0", %s given.')
+                    ->end()
+                ->end()
+                ->scalarNode('install_dir')
+                    ->info('Directory where d2:download installs the binary.')
+                    ->defaultValue('%kernel.project_dir%/var/d2')
+                    ->cannotBeEmpty()
                 ->end()
                 ->scalarNode('timeout')
                     ->info('Maximum rendering time in seconds; null disables the limit.')
@@ -125,10 +141,28 @@ final class D2SymfonyBundle extends AbstractBundle
         /** @var D2Config $config */
         $services = $container->services();
 
+        $services->set('d2.binary_downloader', BinaryDownloader::class)
+            ->args([
+                $config['install_dir'],
+                $config['binary_version'],
+                service('http_client')->nullOnInvalid(),
+            ]);
+
+        $services->set('d2.command.download', DownloadCommand::class)
+            ->args([service('d2.binary_downloader')])
+            ->tag('console.command', ['command' => 'd2:download']);
+
+        // An explicit binary_path wins; otherwise use the downloaded binary, then "d2" from the PATH.
+        $binaries = null !== $config['binary_path'] ? [$config['binary_path']] : [
+            \sprintf('%s/v%s/%s', rtrim($config['install_dir'], '/\\'), ltrim($config['binary_version'], 'v'), '\\' === \DIRECTORY_SEPARATOR ? 'd2.exe' : 'd2'),
+            'd2',
+        ];
+
         $services->set('d2.renderer.binary', BinaryRenderer::class)
             ->args([
-                $config['binary_path'],
+                $binaries,
                 null === $config['timeout'] ? null : (float) $config['timeout'],
+                'Run "bin/console d2:download" to install it, or set "d2.binary_path".',
             ]);
 
         if ($config['cache']['enabled']) {

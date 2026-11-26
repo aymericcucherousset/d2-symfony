@@ -19,7 +19,7 @@ Write [D2](https://d2lang.com) diagrams as text in your Twig templates and get i
 - PHP 8.2 or later
 - Symfony 6.4, 7.4 or 8.x
 - Twig 3.21 or later (`symfony/twig-bundle`), for the `|d2` filter and `{% d2 %}` tag
-- The [`d2` binary](https://d2lang.com/tour/install)
+- The [`d2` binary](https://d2lang.com/tour/install), downloaded for you by `bin/console d2:download` (Linux, macOS and Windows on amd64 or arm64)
 
 ## Installation
 
@@ -31,14 +31,15 @@ Write [D2](https://d2lang.com) diagrams as text in your Twig templates and get i
 
    With [Symfony Flex](https://symfony.com/doc/current/setup/flex.html), the bundle is registered automatically in `config/bundles.php`.
 
-2. Install the `d2` binary (see the [official instructions](https://d2lang.com/tour/install) for other methods):
+2. Download the `d2` binary:
 
    ```bash
-   curl -fsSL https://d2lang.com/install.sh | sh -s --
-   d2 --version
+   bin/console d2:download
    ```
 
-   The bundle looks for `d2` in your `PATH`. Automatic download of the binary is planned for v0.3.0.
+   The command downloads d2 for your platform from the [terrastruct/d2 releases](https://github.com/terrastruct/d2/releases), verifies its SHA-256 checksum and installs it in `var/d2/<version>/`. Run it again with `--force` to reinstall. Add `/var/d2/` to your `.gitignore`, and run the command in your deployment (or Docker build) too.
+
+   The version is pinned (`d2.binary_version`, a version tested with the bundle). Prefer your own installation? [Install d2](https://d2lang.com/tour/install) in your `PATH` or set `d2.binary_path`: the bundle uses, in order, `d2.binary_path`, the downloaded binary, then `d2` from the `PATH`.
 
 ### Without Symfony Flex
 
@@ -58,7 +59,14 @@ No configuration is required. Here is the full reference with the default values
 ```yaml
 d2:
     # Name of the d2 executable looked up in the PATH, or path to it.
-    binary_path: d2
+    # ~ uses the binary installed by d2:download, then "d2" from the PATH.
+    binary_path: ~
+
+    # Version installed by bin/console d2:download.
+    binary_version: v0.9.0
+
+    # Where bin/console d2:download installs the binary.
+    install_dir: '%kernel.project_dir%/var/d2'
 
     # Maximum rendering time in seconds; ~ disables the limit.
     timeout: 60
@@ -182,7 +190,7 @@ Every exception thrown by the bundle implements `Aymericcucherousset\D2Symfony\C
 | Exception | Thrown when |
 | --- | --- |
 | `RenderException` | d2 rejects the source or rendering fails (timeout…); `getD2Line()` / `getD2Column()` locate the first D2 error, `getD2Errors()` lists them all, `getD2Error()` returns the raw d2 output |
-| `BinaryNotFoundException` | the `d2` binary is missing or not executable |
+| `BinaryNotFoundException` | the `d2` binary is missing or not executable (run `bin/console d2:download`) |
 | `InvalidArgumentException` | a diagram or an option is invalid (empty source, unknown option…) |
 
 In templates, Twig wraps them in a `Twig\Error\RuntimeError` pointing to the template line. For the `{% d2 %}` tag, a D2 syntax error points to the template line of the faulty D2 line, so the Symfony error page highlights it:
