@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Twig: `{% d2 %}…{% endd2 %}` tag with optional options (`{% d2 with { theme: 200 } %}`); Twig variables and tags are supported in the body and not HTML-escaped.
 - Core: readable D2 errors: `RenderException::getD2Line()`, `getD2Column()` and `getD2Errors()` parse the location reported by d2, and the message reads `D2 syntax error at line 2, column 4: …`.
 - Twig: errors in a `{% d2 %}` tag point to the template line of the faulty D2 line.
+- Twig: `{% d2 %}` tags with a constant body and options are pre-rendered when templates are compiled (and so during `cache:warmup`); configurable with `d2.twig.prerender_static` (default: enabled when `kernel.debug` is false).
 
 ### Changed
 

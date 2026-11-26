@@ -66,4 +66,22 @@ final class D2FilterTest extends TestCase
             self::assertStringContainsString('maps must be terminated with }', $e->getMessage());
         }
     }
+
+    public function testStaticTagIsPrerenderedWithTheRealBinary(): void
+    {
+        self::requireD2Binary();
+
+        $twig = new Environment(new ArrayLoader(['page' => "{% d2 with { sketch: true } %}\na -> b\n{% endd2 %}"]));
+        $twig->addExtension(new D2Extension(true));
+        $twig->addRuntimeLoader(new FactoryRuntimeLoader([
+            D2Runtime::class => static fn (): D2Runtime => new D2Runtime(new BinaryRenderer()),
+        ]));
+
+        $php = $twig->compileSource($twig->getLoader()->getSourceContext('page'));
+        self::assertStringNotContainsString('renderTag(', $php);
+
+        $output = $twig->render('page');
+        self::assertStringStartsWith('<svg', $output);
+        self::assertStringEndsWith('</svg>', trim($output));
+    }
 }
