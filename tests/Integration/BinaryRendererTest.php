@@ -48,7 +48,9 @@ final class BinaryRendererTest extends TestCase
             self::fail('A RenderException was expected.');
         } catch (RenderException $e) {
             self::assertNotSame('', trim($e->getD2Error()));
-            self::assertMatchesRegularExpression('/\d+:\d+/', $e->getD2Error());
+            self::assertSame(2, $e->getD2Line());
+            self::assertSame(4, $e->getD2Column());
+            self::assertSame('D2 syntax error at line 2, column 4: maps must be terminated with }', $e->getMessage());
         }
     }
 

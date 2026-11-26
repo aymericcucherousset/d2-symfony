@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Core: `VersionAwareRenderer` interface; `BinaryRenderer::getVersion()` runs `d2 --version` once per instance.
 - Bundle: `d2.cache.enabled` (default `true`) and `d2.cache.pool` (default `cache.d2`, created automatically with FrameworkBundle); `d2.renderer` now points to the cached renderer.
 - Twig: `{% d2 %}…{% endd2 %}` tag with optional options (`{% d2 with { theme: 200 } %}`); Twig variables and tags are supported in the body and not HTML-escaped.
+- Core: readable D2 errors: `RenderException::getD2Line()`, `getD2Column()` and `getD2Errors()` parse the location reported by d2, and the message reads `D2 syntax error at line 2, column 4: …`.
+- Twig: errors in a `{% d2 %}` tag point to the template line of the faulty D2 line.
 
 ### Changed
 
