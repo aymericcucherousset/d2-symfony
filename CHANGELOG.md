@@ -7,18 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-26
+
 ### Added
 
 - Core: `CachedRenderer`, a decorator caching rendered SVG in any PSR-6 pool; the key covers the source, the options and the engine version, and failed renders are never cached.
 - Core: `VersionAwareRenderer` interface; `BinaryRenderer::getVersion()` runs `d2 --version` once per instance.
+- Core: readable D2 errors: `RenderException::getD2Line()`, `getD2Column()` and `getD2Errors()` parse the location reported by d2, and the message reads `D2 syntax error at line 2, column 4: …`.
 - Bundle: `d2.cache.enabled` (default `true`) and `d2.cache.pool` (default `cache.d2`, created automatically with FrameworkBundle); `d2.renderer` now points to the cached renderer.
 - Twig: `{% d2 %}…{% endd2 %}` tag with optional options (`{% d2 with { theme: 200 } %}`); Twig variables and tags are supported in the body and not HTML-escaped.
-- Core: readable D2 errors: `RenderException::getD2Line()`, `getD2Column()` and `getD2Errors()` parse the location reported by d2, and the message reads `D2 syntax error at line 2, column 4: …`.
 - Twig: errors in a `{% d2 %}` tag point to the template line of the faulty D2 line.
 - Twig: `{% d2 %}` tags with a constant body and options are pre-rendered when templates are compiled (and so during `cache:warmup`); configurable with `d2.twig.prerender_static` (default: enabled when `kernel.debug` is false).
 
 ### Changed
 
+- Rendered SVG is now cached by default; set `d2.cache: false` to render on every call as in 0.1.
+- `RenderException` messages for located D2 errors now read `D2 syntax error at line L, column C: …`; the raw d2 output is still available through `getD2Error()`.
 - Twig 3.21 or later is required for the Twig integration (`conflict` with `twig/twig <3.21`).
 
 ## [0.1.0] - 2026-11-25
@@ -45,5 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `D2Bundle::getPath()` now returns the package root instead of `src/`.
 
-[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/aymericcucherousset/d2-symfony/releases/tag/v0.1.0
