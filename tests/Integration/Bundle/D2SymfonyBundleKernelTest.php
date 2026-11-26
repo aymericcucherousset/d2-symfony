@@ -7,18 +7,22 @@ namespace Aymericcucherousset\D2Symfony\Tests\Integration\Bundle;
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
 use Aymericcucherousset\D2Symfony\Core\Diagram;
+use Aymericcucherousset\D2Symfony\Core\Exception\BinaryNotFoundException;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\D2SymfonyBundle;
+use Aymericcucherousset\D2Symfony\Downloader\BinaryDownloader;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\RendererConsumer;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
 use Nyholm\BundleTest\TestKernel;
 use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\TwigBundle\TwigBundle;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerAggregate;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Twig\Environment;
@@ -32,6 +36,9 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
     /** @var callable|null */
     private $initialExceptionHandler;
 
+    /** @var list<string> */
+    private array $cleanup = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -42,6 +49,8 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
     protected function tearDown(): void
     {
         parent::tearDown();
+
+        (new Filesystem())->remove($this->cleanup);
 
         // FrameworkBundle::boot() registers Symfony's ErrorHandler as exception handler and older
         // versions (< 7) never remove it, which PHPUnit 11 reports as a risky test.
@@ -300,5 +309,83 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         $extension = self::getContainer()->get('d2.twig.extension');
         self::assertInstanceOf(D2Extension::class, $extension);
         self::assertSame([], $extension->getNodeVisitors());
+    }
+
+    public function testDownloadCommandIsRegistered(): void
+    {
+        $kernel = self::bootKernel();
+
+        $application = new Application($kernel);
+
+        self::assertTrue($application->has('d2:download'));
+        self::assertInstanceOf(BinaryDownloader::class, self::getContainer()->get('d2.binary_downloader'));
+    }
+
+    public function testDownloadedBinaryIsUsedWhenNoPathIsConfigured(): void
+    {
+        $installDir = $this->installFakeBinary();
+
+        self::bootKernel(['config' => static function (TestKernel $kernel) use ($installDir): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container) use ($installDir): void {
+                $container->loadFromExtension('d2', ['install_dir' => $installDir, 'cache' => false]);
+            });
+        }]);
+
+        $renderer = self::getContainer()->get(Renderer::class);
+        self::assertInstanceOf(Renderer::class, $renderer);
+
+        // fake-d2-version answers "<svg>- -</svg>", unlike any real d2 binary from the PATH.
+        self::assertSame("<svg>- -</svg>\n", $renderer->render(new Diagram('a')));
+    }
+
+    public function testExplicitBinaryPathTakesPrecedenceOverTheDownloadedBinary(): void
+    {
+        $installDir = $this->installFakeBinary();
+
+        self::bootKernel(['config' => static function (TestKernel $kernel) use ($installDir): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container) use ($installDir): void {
+                $container->loadFromExtension('d2', ['install_dir' => $installDir, 'binary_path' => self::FAKE_D2, 'cache' => false]);
+            });
+        }]);
+
+        $renderer = self::getContainer()->get(Renderer::class);
+        self::assertInstanceOf(Renderer::class, $renderer);
+
+        self::assertStringContainsString('stdin:a', $renderer->render(new Diagram('a')));
+    }
+
+    public function testMissingBinarySuggestsTheDownloadCommand(): void
+    {
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', ['binary_path' => '/nonexistent/d2', 'cache' => false]);
+            });
+        }]);
+
+        $renderer = self::getContainer()->get(Renderer::class);
+        self::assertInstanceOf(Renderer::class, $renderer);
+
+        $this->expectException(BinaryNotFoundException::class);
+        $this->expectExceptionMessage('Run "bin/console d2:download" to install it, or set "d2.binary_path".');
+
+        $renderer->render(new Diagram('a'));
+    }
+
+    /**
+     * Installs fake-d2-version where d2:download would put d2 v0.9.0, and returns the install directory.
+     */
+    private function installFakeBinary(): string
+    {
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('The fake d2 binary is a POSIX shell script.');
+        }
+
+        $installDir = sys_get_temp_dir().'/d2-install-'.bin2hex(random_bytes(6));
+        mkdir($installDir.'/'.BinaryDownloader::DEFAULT_VERSION, 0o777, true);
+        copy(self::FAKE_D2_VERSION, $installDir.'/'.BinaryDownloader::DEFAULT_VERSION.'/d2');
+        chmod($installDir.'/'.BinaryDownloader::DEFAULT_VERSION.'/d2', 0o755);
+        $this->cleanup[] = $installDir;
+
+        return $installDir;
     }
 }

@@ -154,4 +154,33 @@ final class BinaryRendererTest extends TestCase
 
         (new BinaryRenderer(self::BIN_DIR.'/does-not-exist'))->getVersion();
     }
+
+    public function testCandidatesAreTriedInOrder(): void
+    {
+        $renderer = new BinaryRenderer([self::BIN_DIR.'/does-not-exist', self::BIN_DIR.'/fake-d2-version', self::BIN_DIR.'/fake-d2-echo']);
+
+        self::assertSame('v9.9.9', $renderer->getVersion());
+    }
+
+    public function testMissingCandidatesAreListedWithTheHint(): void
+    {
+        $renderer = new BinaryRenderer([self::BIN_DIR.'/missing', 'd2-does-not-exist-'.bin2hex(random_bytes(4))], 5.0, 'Run "bin/console d2:download".');
+
+        try {
+            $renderer->render(new Diagram('a'));
+            self::fail('A BinaryNotFoundException was expected.');
+        } catch (BinaryNotFoundException $e) {
+            self::assertCount(2, $e->getCandidates());
+            self::assertSame(self::BIN_DIR.'/missing', $e->getBinary());
+            self::assertStringContainsString('(tried "'.self::BIN_DIR.'/missing", "d2-does-not-exist-', $e->getMessage());
+            self::assertStringEndsWith('Run "bin/console d2:download".', $e->getMessage());
+        }
+    }
+
+    public function testEmptyCandidateListIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new BinaryRenderer([]);
+    }
 }
