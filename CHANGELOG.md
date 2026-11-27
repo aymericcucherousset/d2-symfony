@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Core: `KrokiRenderer` renders diagrams over HTTP with a Kroki server (`POST /d2/svg`, configurable base URL and timeout). The `theme`, `layout`, `pad` and `sketch` options are sent as `Kroki-Diagram-Options-*` headers, and unsupported options are logged as warnings through an optional PSR-3 logger. HTTP and network errors throw a `RenderException`.
+- Core: `RenderOptions::toArray()` returns the options that differ from the d2 defaults.
+
+### Changed
+
+- `psr/log` and `symfony/http-client-contracts` are now required.
+
 ## [0.3.0] - 2026-11-27
 
 ### Added

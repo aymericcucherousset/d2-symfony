@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
  */
 final class CoreIsolationTest extends TestCase
 {
-    public function testCoreDoesNotDependOnSymfonyExceptProcess(): void
+    public function testCoreDoesNotDependOnSymfonyExceptProcessAndHttpClientContracts(): void
     {
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator(\dirname(__DIR__, 3).'/src/Core', \FilesystemIterator::SKIP_DOTS),
@@ -30,7 +30,7 @@ final class CoreIsolationTest extends TestCase
             preg_match_all('/^use\s+\\\\?(Symfony\\\\[^;\s]+)/m', $contents, $matches);
 
             foreach ($matches[1] as $import) {
-                if (!str_starts_with($import, 'Symfony\\Component\\Process\\')) {
+                if (!str_starts_with($import, 'Symfony\\Component\\Process\\') && !str_starts_with($import, 'Symfony\\Contracts\\HttpClient\\')) {
                     $violations[] = \sprintf('%s imports %s', $file->getFilename(), $import);
                 }
             }
