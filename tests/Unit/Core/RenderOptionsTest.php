@@ -29,6 +29,16 @@ final class RenderOptionsTest extends TestCase
         self::assertSame(['--theme=200', '--layout=elk', '--pad=20', '--sketch'], $options->toCliArguments());
     }
 
+    public function testToArrayOnlyContainsNonDefaultOptions(): void
+    {
+        self::assertSame([], (new RenderOptions())->toArray());
+        self::assertSame(['theme' => 0, 'pad' => 0], (new RenderOptions(theme: 0, pad: 0))->toArray());
+        self::assertSame(
+            ['theme' => 200, 'layout' => 'elk', 'pad' => 20, 'sketch' => true],
+            (new RenderOptions(theme: 200, layout: 'elk', pad: 20, sketch: true))->toArray(),
+        );
+    }
+
     public function testZeroValuesAreEmitted(): void
     {
         $options = new RenderOptions(theme: 0, pad: 0);

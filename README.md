@@ -159,6 +159,30 @@ final class DiagramController
 }
 ```
 
+### Kroki (without the d2 binary)
+
+Where running binaries is not allowed, `KrokiRenderer` renders diagrams over HTTP with [Kroki](https://kroki.io), the public instance or a self-hosted one. It is not wired by the bundle yet: build it from any Symfony HTTP client.
+
+```php
+use Aymericcucherousset\D2Symfony\Core\Diagram;
+use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
+use Symfony\Component\HttpClient\HttpClient;
+
+$renderer = new KrokiRenderer(
+    HttpClient::create(),
+    'https://kroki.example.com', // default: https://kroki.io
+    timeout: 10.0,               // seconds, default 60; null uses the HTTP client default
+    logger: $logger,             // optional PSR-3 logger
+);
+
+$svg = $renderer->render(new Diagram('a -> b'));
+```
+
+The `theme`, `layout`, `pad` and `sketch` options are forwarded to Kroki. Options Kroki does not support are ignored, and a warning is logged. HTTP and network errors throw a `RenderException`, and D2 syntax errors reported by Kroki are parsed as with the binary.
+
+> [!NOTE]
+> The diagram source is sent to the Kroki server. Use a self-hosted instance for private diagrams.
+
 ### Caching
 
 Rendered SVG is cached in the `cache.d2` pool (backed by `cache.app`), so each diagram is rendered by d2 only once. The cache key covers the D2 source, the options and the d2 version: diagrams are rendered again after a d2 upgrade (the version is checked every 5 minutes). To use another backend, point `d2.cache.pool` to any PSR-6 pool, or configure `cache.d2` under `framework.cache.pools`.
@@ -189,7 +213,7 @@ Every exception thrown by the bundle implements `Aymericcucherousset\D2Symfony\C
 
 | Exception | Thrown when |
 | --- | --- |
-| `RenderException` | d2 rejects the source or rendering fails (timeout…); `getD2Line()` / `getD2Column()` locate the first D2 error, `getD2Errors()` lists them all, `getD2Error()` returns the raw d2 output |
+| `RenderException` | d2 rejects the source or rendering fails (timeout, Kroki HTTP error…); `getD2Line()` / `getD2Column()` locate the first D2 error, `getD2Errors()` lists them all, `getD2Error()` returns the raw d2 output |
 | `BinaryNotFoundException` | the `d2` binary is missing or not executable (run `bin/console d2:download`) |
 | `InvalidArgumentException` | a diagram or an option is invalid (empty source, unknown option…) |
 

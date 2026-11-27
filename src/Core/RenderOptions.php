@@ -124,6 +124,23 @@ final readonly class RenderOptions
     }
 
     /**
+     * Returns the options that differ from the d2 defaults, keyed by option name, in a stable order.
+     *
+     * Renderers that do not drive the d2 CLI (e.g. HTTP renderers) map options from this array.
+     *
+     * @return array<string, int|string|true>
+     */
+    public function toArray(): array
+    {
+        return array_filter([
+            'theme' => $this->theme,
+            'layout' => $this->layout,
+            'pad' => $this->pad,
+            'sketch' => $this->sketch ?: null,
+        ], static fn (int|string|bool|null $value): bool => null !== $value);
+    }
+
+    /**
      * Returns a stable hash of these options, suitable as part of a cache key.
      */
     public function fingerprint(): string
