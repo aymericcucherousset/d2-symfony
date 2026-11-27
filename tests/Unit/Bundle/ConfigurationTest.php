@@ -18,6 +18,9 @@ final class ConfigurationTest extends TestCase
     public function testDefaultConfiguration(): void
     {
         self::assertSame([
+            'renderer' => 'binary',
+            'chain' => ['binary', 'kroki'],
+            'kroki' => ['base_url' => 'https://kroki.io', 'http_client' => 'http_client'],
             'binary_path' => null,
             'binary_version' => 'v0.9.0',
             'install_dir' => '%kernel.project_dir%/var/d2',
@@ -31,6 +34,9 @@ final class ConfigurationTest extends TestCase
     public function testFullConfiguration(): void
     {
         self::assertSame([
+            'renderer' => 'chain',
+            'chain' => ['kroki', 'binary'],
+            'kroki' => ['base_url' => 'https://kroki.example.com/kroki', 'http_client' => 'kroki.client'],
             'binary_path' => '/usr/local/bin/d2',
             'binary_version' => '0.8.1',
             'install_dir' => '/opt/d2',
@@ -39,6 +45,9 @@ final class ConfigurationTest extends TestCase
             'cache' => ['pool' => 'cache.redis', 'enabled' => true],
             'twig' => ['prerender_static' => false],
         ], self::process([
+            'renderer' => 'chain',
+            'chain' => ['kroki', 'binary'],
+            'kroki' => ['base_url' => 'https://kroki.example.com/kroki', 'http_client' => 'kroki.client'],
             'binary_path' => '/usr/local/bin/d2',
             'binary_version' => '0.8.1',
             'install_dir' => '/opt/d2',
@@ -102,7 +111,16 @@ final class ConfigurationTest extends TestCase
         yield 'empty cache pool' => [['cache' => ['pool' => '']]];
         yield 'non-string cache pool' => [['cache' => ['pool' => 42]]];
         yield 'string prerender_static' => [['twig' => ['prerender_static' => 'yes']]];
-        yield 'unknown option' => [['renderer' => 'kroki']];
+        yield 'unknown option' => [['engine' => 'kroki']];
+        yield 'unknown renderer' => [['renderer' => 'wasm']];
+        yield 'empty chain' => [['chain' => []]];
+        yield 'unknown chained renderer' => [['chain' => ['binary', 'wasm']]];
+        yield 'duplicate chained renderer' => [['chain' => ['binary', 'binary']]];
+        yield 'nested chain' => [['chain' => ['chain']]];
+        yield 'relative Kroki URL' => [['kroki' => ['base_url' => 'kroki.io']]];
+        yield 'non-http Kroki URL' => [['kroki' => ['base_url' => 'ftp://kroki.io']]];
+        yield 'non-string Kroki URL' => [['kroki' => ['base_url' => 42]]];
+        yield 'empty Kroki HTTP client' => [['kroki' => ['http_client' => '']]];
         yield 'unknown default' => [['defaults' => ['scale' => 2]]];
     }
 

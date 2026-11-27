@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Core: `KrokiRenderer` renders diagrams over HTTP with a Kroki server (`POST /d2/svg`, configurable base URL and timeout). The `theme`, `layout`, `pad` and `sketch` options are sent as `Kroki-Diagram-Options-*` headers, and unsupported options are logged as warnings through an optional PSR-3 logger. HTTP and network errors throw a `RenderException`.
+- Core: `KrokiRenderer` renders diagrams over HTTP with a Kroki server (`POST /d2/svg`, configurable base URL and timeout). The `theme`, `layout`, `pad` and `sketch` options are sent as `Kroki-Diagram-Options-*` headers, and unsupported options are logged as warnings through an optional PSR-3 logger. Network errors and server errors (HTTP 5xx) throw a `RemoteUnavailableException`; D2 errors throw a `RenderException`.
 - Core: `RenderOptions::toArray()` returns the options that differ from the d2 defaults.
+- Core: `ChainRenderer` tries renderers in order and moves to the next one only when a renderer is unavailable; when none is available it throws `NoRendererAvailableException` (`getFailures()`).
+- Core: `RendererUnavailableException` interface, implemented by `BinaryNotFoundException`, `RemoteUnavailableException` and `NoRendererAvailableException`.
+- Bundle: `d2.renderer` (`binary`, `kroki` or `chain`), `d2.chain` (default `[binary, kroki]`), `d2.kroki.base_url` and `d2.kroki.http_client`. The selected renderer is available as `d2.renderer.inner`, and the Kroki renderer logs on the `d2` channel.
 
 ### Changed
 

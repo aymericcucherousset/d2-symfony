@@ -6,6 +6,7 @@ namespace Aymericcucherousset\D2Symfony\Tests\Unit\Core;
 
 use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
+use Aymericcucherousset\D2Symfony\Core\Exception\RemoteUnavailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
 use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
@@ -97,24 +98,58 @@ final class KrokiRendererTest extends TestCase
         }
     }
 
-    public function testHttpErrorWithoutBody(): void
+    public function testServerErrorWithoutBodyMeansUnavailable(): void
     {
         $renderer = new KrokiRenderer(new MockHttpClient(new MockResponse('', ['http_code' => 503])));
 
-        $this->expectException(RenderException::class);
+        $this->expectException(RemoteUnavailableException::class);
         $this->expectExceptionMessage('Kroki returned HTTP 503.');
 
         $renderer->render(new Diagram('a -> b'));
     }
 
-    public function testTransportErrorsAreWrapped(): void
+    public function testServerErrorBodyIsTruncatedInTheMessage(): void
+    {
+        $renderer = new KrokiRenderer(new MockHttpClient(new MockResponse(str_repeat('x', 300), ['http_code' => 502])));
+
+        $this->expectException(RemoteUnavailableException::class);
+        $this->expectExceptionMessage('Kroki returned HTTP 502: '.str_repeat('x', 200).'…');
+
+        $renderer->render(new Diagram('a -> b'));
+    }
+
+    public function testServerErrorWithD2ErrorsIsARenderError(): void
+    {
+        $body = '-:1:3: unexpected text after map key';
+        $renderer = new KrokiRenderer(new MockHttpClient(new MockResponse($body, ['http_code' => 500])));
+
+        try {
+            $renderer->render(new Diagram('a b c'));
+            self::fail('A RenderException should have been thrown.');
+        } catch (RenderException $e) {
+            self::assertSame(1, $e->getD2Line());
+            self::assertSame($body, $e->getD2Error());
+        }
+    }
+
+    public function testClientErrorWithoutBody(): void
+    {
+        $renderer = new KrokiRenderer(new MockHttpClient(new MockResponse('', ['http_code' => 404])));
+
+        $this->expectException(RenderException::class);
+        $this->expectExceptionMessage('Kroki returned HTTP 404.');
+
+        $renderer->render(new Diagram('a -> b'));
+    }
+
+    public function testTransportErrorsMeanUnavailable(): void
     {
         $renderer = new KrokiRenderer(new MockHttpClient(new MockResponse('', ['error' => 'Connection refused'])));
 
         try {
             $renderer->render(new Diagram('a -> b'));
-            self::fail('A RenderException should have been thrown.');
-        } catch (RenderException $e) {
+            self::fail('A RemoteUnavailableException should have been thrown.');
+        } catch (RemoteUnavailableException $e) {
             self::assertStringContainsString('The Kroki request to "https://kroki.io/d2/svg" failed', $e->getMessage());
             self::assertStringContainsString('Connection refused', $e->getMessage());
             self::assertInstanceOf(TransportExceptionInterface::class, $e->getPrevious());

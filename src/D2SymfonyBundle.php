@@ -7,6 +7,8 @@ namespace Aymericcucherousset\D2Symfony;
 use Aymericcucherousset\D2Symfony\Command\DownloadCommand;
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
+use Aymericcucherousset\D2Symfony\Core\ChainRenderer;
+use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Downloader\BinaryDownloader;
@@ -15,13 +17,18 @@ use Aymericcucherousset\D2Symfony\Twig\D2Runtime;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Twig\Environment;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 /**
  * @phpstan-type D2Config array{
+ *     renderer: 'binary'|'kroki'|'chain',
+ *     chain: non-empty-list<'binary'|'kroki'>,
+ *     kroki: array{base_url: string, http_client: string},
  *     binary_path: string|null,
  *     binary_version: string,
  *     install_dir: string,
@@ -34,6 +41,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 final class D2SymfonyBundle extends AbstractBundle
 {
     private const CACHE_POOL = 'cache.d2';
+    private const RENDERERS = ['binary', 'kroki'];
 
     protected string $extensionAlias = 'd2';
 
@@ -41,6 +49,40 @@ final class D2SymfonyBundle extends AbstractBundle
     {
         $definition->rootNode()
             ->children()
+                ->enumNode('renderer')
+                    ->info('How diagrams are rendered: "binary" (local d2), "kroki" (Kroki server over HTTP) or "chain" (each renderer of "chain" in order).')
+                    ->values([...self::RENDERERS, 'chain'])
+                    ->defaultValue('binary')
+                ->end()
+                ->arrayNode('chain')
+                    ->info('Renderers tried in order when "renderer" is "chain"; the next one is used only when the previous one is unavailable (missing binary, unreachable server).')
+                    ->enumPrototype()->values(self::RENDERERS)->end()
+                    ->defaultValue(self::RENDERERS)
+                    ->requiresAtLeastOneElement()
+                    ->validate()
+                        ->ifTrue(static fn (array $chain): bool => \count($chain) !== \count(array_unique($chain, \SORT_REGULAR)))
+                        ->thenInvalid('Each renderer must appear only once in the chain, %s given.')
+                    ->end()
+                ->end()
+                ->arrayNode('kroki')
+                    ->info('Kroki server used by the "kroki" renderer.')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('base_url')
+                            ->info('URL of the Kroki server: the public instance or a self-hosted one.')
+                            ->defaultValue(KrokiRenderer::DEFAULT_BASE_URL)
+                            ->validate()
+                                ->ifTrue(static fn (mixed $value): bool => !\is_string($value) || !\in_array(strtolower((string) parse_url($value, \PHP_URL_SCHEME)), ['http', 'https'], true) || '' === (string) parse_url($value, \PHP_URL_HOST))
+                                ->thenInvalid('The Kroki base URL must be an absolute http(s) URL, %s given.')
+                            ->end()
+                        ->end()
+                        ->scalarNode('http_client')
+                            ->info('HTTP client service ID, e.g. a scoped client; a default client is created when the service does not exist.')
+                            ->defaultValue('http_client')
+                            ->cannotBeEmpty()
+                        ->end()
+                    ->end()
+                ->end()
                 ->scalarNode('binary_path')
                     ->info('Name of the d2 executable looked up in the PATH, or path to it; null uses the binary installed by d2:download, then "d2" from the PATH.')
                     ->defaultNull()
@@ -165,13 +207,37 @@ final class D2SymfonyBundle extends AbstractBundle
                 'Run "bin/console d2:download" to install it, or set "d2.binary_path".',
             ]);
 
+        $renderers = 'chain' === $config['renderer'] ? $config['chain'] : [$config['renderer']];
+
+        if (\in_array('kroki', $renderers, true)) {
+            $services->set('d2.kroki.http_client', HttpClientInterface::class)
+                ->factory([self::class, 'createHttpClient'])
+                ->args([service($config['kroki']['http_client'])->nullOnInvalid()]);
+
+            $services->set('d2.renderer.kroki', KrokiRenderer::class)
+                ->args([
+                    service('d2.kroki.http_client'),
+                    $config['kroki']['base_url'],
+                    null === $config['timeout'] ? null : (float) $config['timeout'],
+                    service('logger')->nullOnInvalid(),
+                ])
+                ->tag('monolog.logger', ['channel' => 'd2']);
+        }
+
+        if ('chain' === $config['renderer']) {
+            $services->set('d2.renderer.chain', ChainRenderer::class)
+                ->args([array_map(static fn (string $name) => service('d2.renderer.'.$name), $config['chain'])]);
+        }
+
+        $services->alias('d2.renderer.inner', 'd2.renderer.'.$config['renderer']);
+
         if ($config['cache']['enabled']) {
             $services->set('d2.renderer.cached', CachedRenderer::class)
-                ->args([service('d2.renderer.binary'), service($config['cache']['pool'])]);
+                ->args([service('d2.renderer.inner'), service($config['cache']['pool'])]);
 
             $services->alias('d2.renderer', 'd2.renderer.cached');
         } else {
-            $services->alias('d2.renderer', 'd2.renderer.binary');
+            $services->alias('d2.renderer', 'd2.renderer.inner');
         }
         $services->alias(Renderer::class, 'd2.renderer');
 
@@ -188,6 +254,16 @@ final class D2SymfonyBundle extends AbstractBundle
                 ->args([service('d2.renderer'), service('d2.default_options')])
                 ->tag('twig.runtime');
         }
+    }
+
+    /**
+     * Returns the configured HTTP client, or a default one when the service does not exist (no FrameworkBundle).
+     *
+     * @internal
+     */
+    public static function createHttpClient(?HttpClientInterface $client = null): HttpClientInterface
+    {
+        return $client ?? HttpClient::create();
     }
 
     private static function createRenderOptions(mixed $options): RenderOptions
