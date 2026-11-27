@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-27
+
 ### Added
 
 - `bin/console d2:download` (`--force`) downloads the d2 binary for the current platform (Linux, macOS, Windows × amd64, arm64) from the terrastruct/d2 GitHub releases, verifies its SHA-256 checksum against the published `SHA256SUMS` and installs it in `var/d2/<version>/`.
@@ -62,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `D2Bundle::getPath()` now returns the package root instead of `src/`.
 
-[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/aymericcucherousset/d2-symfony/releases/tag/v0.1.0
