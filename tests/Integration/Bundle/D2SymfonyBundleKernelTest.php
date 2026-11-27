@@ -6,12 +6,16 @@ namespace Aymericcucherousset\D2Symfony\Tests\Integration\Bundle;
 
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
+use Aymericcucherousset\D2Symfony\Core\ChainRenderer;
 use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Exception\BinaryNotFoundException;
+use Aymericcucherousset\D2Symfony\Core\Exception\NoRendererAvailableException;
+use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\D2SymfonyBundle;
 use Aymericcucherousset\D2Symfony\Downloader\BinaryDownloader;
+use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\FakeKrokiClient;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\RendererConsumer;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
 use Nyholm\BundleTest\TestKernel;
@@ -25,6 +29,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerAggregate;
 use Symfony\Component\HttpKernel\KernelInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Twig\Environment;
 
 final class D2SymfonyBundleKernelTest extends KernelTestCase
@@ -84,6 +89,7 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         $kernel->addTestBundle(D2SymfonyBundle::class);
         $kernel->addTestConfig(static function (ContainerBuilder $container): void {
             $container->register(RendererConsumer::class)->setAutowired(true)->setPublic(true);
+            $container->register('test.kroki_client', HttpClientInterface::class)->setFactory([FakeKrokiClient::class, 'create']);
         });
         // Keep d2.* services available to the test container even when nothing uses them yet.
         $kernel->addTestCompilerPass(new class implements CompilerPassInterface {
@@ -111,6 +117,89 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         self::assertInstanceOf(BinaryRenderer::class, $container->get('d2.renderer.binary'));
         self::assertInstanceOf(CacheItemPoolInterface::class, $container->get('cache.d2'));
         self::assertEquals(new RenderOptions(), $container->get('d2.default_options'));
+        self::assertInstanceOf(BinaryRenderer::class, $container->get('d2.renderer.inner'));
+        self::assertFalse($container->has('d2.renderer.kroki'));
+        self::assertFalse($container->has('d2.renderer.chain'));
+    }
+
+    public function testKrokiRendererCanBeSelected(): void
+    {
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', [
+                    'renderer' => 'kroki',
+                    'cache' => false,
+                    'kroki' => ['base_url' => 'https://kroki.example.com/', 'http_client' => 'test.kroki_client'],
+                ]);
+            });
+        }]);
+        $container = self::getContainer();
+
+        $renderer = $container->get(Renderer::class);
+        self::assertInstanceOf(KrokiRenderer::class, $renderer);
+        self::assertSame('<svg data-url="https://kroki.example.com/d2/svg">a -> b</svg>', $renderer->render(new Diagram('a -> b')));
+    }
+
+    public function testKrokiRendererWorksWithoutAConfiguredHttpClient(): void
+    {
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', ['renderer' => 'kroki', 'kroki' => ['http_client' => 'missing.client']]);
+            });
+        }]);
+
+        self::assertInstanceOf(HttpClientInterface::class, self::getContainer()->get('d2.kroki.http_client'));
+        self::assertInstanceOf(KrokiRenderer::class, self::getContainer()->get('d2.renderer.kroki'));
+    }
+
+    public function testChainFallsBackToKrokiWhenTheBinaryIsMissing(): void
+    {
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', [
+                    'renderer' => 'chain',
+                    'binary_path' => '/nonexistent/d2',
+                    'kroki' => ['http_client' => 'test.kroki_client'],
+                ]);
+            });
+        }]);
+        $container = self::getContainer();
+
+        $pool = $container->get('cache.d2');
+        self::assertInstanceOf(CacheItemPoolInterface::class, $pool);
+        $pool->clear();
+
+        self::assertInstanceOf(ChainRenderer::class, $container->get('d2.renderer.inner'));
+
+        $renderer = $container->get(Renderer::class);
+        self::assertInstanceOf(CachedRenderer::class, $renderer);
+        self::assertSame('<svg data-url="https://kroki.io/d2/svg">a -> b</svg>', $renderer->render(new Diagram('a -> b')));
+        self::assertSame('kroki:https://kroki.io', $renderer->getVersion());
+    }
+
+    public function testChainOrderIsConfigurable(): void
+    {
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', [
+                    'renderer' => 'chain',
+                    'chain' => ['binary'],
+                    'binary_path' => '/nonexistent/d2',
+                    'cache' => false,
+                ]);
+            });
+        }]);
+        $container = self::getContainer();
+
+        self::assertFalse($container->has('d2.renderer.kroki'));
+
+        $renderer = $container->get(Renderer::class);
+        self::assertInstanceOf(Renderer::class, $renderer);
+
+        $this->expectException(NoRendererAvailableException::class);
+        $this->expectExceptionMessage('Run "bin/console d2:download"');
+
+        $renderer->render(new Diagram('a'));
     }
 
     public function testCacheCanBeDisabled(): void

@@ -58,6 +58,18 @@ No configuration is required. Here is the full reference with the default values
 
 ```yaml
 d2:
+    # How diagrams are rendered: binary, kroki or chain (see "Choosing a renderer").
+    renderer: binary
+
+    # Renderers tried in order when renderer is "chain".
+    chain: [binary, kroki]
+
+    kroki:
+        # Kroki server: the public instance or a self-hosted one.
+        base_url: https://kroki.io
+        # HTTP client service, e.g. a scoped client; a default client is used when it does not exist.
+        http_client: http_client
+
     # Name of the d2 executable looked up in the PATH, or path to it.
     # ~ uses the binary installed by d2:download, then "d2" from the PATH.
     binary_path: ~
@@ -68,7 +80,8 @@ d2:
     # Where bin/console d2:download installs the binary.
     install_dir: '%kernel.project_dir%/var/d2'
 
-    # Maximum rendering time in seconds; ~ disables the limit.
+    # Maximum rendering time in seconds, for the binary and Kroki; ~ disables the limit
+    # (Kroki then uses the HTTP client defaults).
     timeout: 60
 
     # Options applied to every diagram unless overridden.
@@ -159,29 +172,43 @@ final class DiagramController
 }
 ```
 
-### Kroki (without the d2 binary)
+### Choosing a renderer
 
-Where running binaries is not allowed, `KrokiRenderer` renders diagrams over HTTP with [Kroki](https://kroki.io), the public instance or a self-hosted one. It is not wired by the bundle yet: build it from any Symfony HTTP client.
+| `renderer` | Renders with | Use it when |
+| --- | --- | --- |
+| `binary` (default) | the local `d2` binary | you can run binaries: fastest, works offline, no data leaves the server |
+| `kroki` | a [Kroki](https://kroki.io) server over HTTP | the hosting platform forbids running binaries (some PaaS, serverless, shared hosting) |
+| `chain` | each renderer of `chain`, in order | you want a fallback, e.g. the binary in production and Kroki on machines where d2 is not installed |
+
+```yaml
+# config/packages/d2.yaml
+d2:
+    renderer: chain
+    chain: [binary, kroki] # default order
+    kroki:
+        base_url: https://kroki.example.com # optional, defaults to https://kroki.io
+```
+
+In `chain` mode, the next renderer is only tried when the current one is **unavailable**: the d2 binary is missing or not executable, or the Kroki server cannot be reached or returns a server error (HTTP 5xx). D2 syntax errors and timeouts are thrown right away, since another renderer would not do better. When every renderer is unavailable, a `NoRendererAvailableException` lists each error.
+
+Kroki receives the `theme`, `layout`, `pad` and `sketch` options. Options it does not support are ignored, and a warning is logged on the `d2` channel. To authenticate against a self-hosted instance, point `d2.kroki.http_client` to a [scoped client](https://symfony.com/doc/current/http_client.html#scoping-client) with the right headers.
+
+> [!NOTE]
+> With `kroki` or `chain`, the diagram source may be sent to the Kroki server. Use a self-hosted instance for private diagrams.
+
+Outside the bundle, the core classes can be used directly:
 
 ```php
-use Aymericcucherousset\D2Symfony\Core\Diagram;
+use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
+use Aymericcucherousset\D2Symfony\Core\ChainRenderer;
 use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
 use Symfony\Component\HttpClient\HttpClient;
 
-$renderer = new KrokiRenderer(
-    HttpClient::create(),
-    'https://kroki.example.com', // default: https://kroki.io
-    timeout: 10.0,               // seconds, default 60; null uses the HTTP client default
-    logger: $logger,             // optional PSR-3 logger
-);
-
-$svg = $renderer->render(new Diagram('a -> b'));
+$renderer = new ChainRenderer([
+    new BinaryRenderer(),
+    new KrokiRenderer(HttpClient::create(), 'https://kroki.io', timeout: 10.0, logger: $logger),
+]);
 ```
-
-The `theme`, `layout`, `pad` and `sketch` options are forwarded to Kroki. Options Kroki does not support are ignored, and a warning is logged. HTTP and network errors throw a `RenderException`, and D2 syntax errors reported by Kroki are parsed as with the binary.
-
-> [!NOTE]
-> The diagram source is sent to the Kroki server. Use a self-hosted instance for private diagrams.
 
 ### Caching
 
@@ -215,7 +242,11 @@ Every exception thrown by the bundle implements `Aymericcucherousset\D2Symfony\C
 | --- | --- |
 | `RenderException` | d2 rejects the source or rendering fails (timeout, Kroki HTTP error…); `getD2Line()` / `getD2Column()` locate the first D2 error, `getD2Errors()` lists them all, `getD2Error()` returns the raw d2 output |
 | `BinaryNotFoundException` | the `d2` binary is missing or not executable (run `bin/console d2:download`) |
+| `RemoteUnavailableException` | the Kroki server cannot be reached or returns a server error (HTTP 5xx) |
+| `NoRendererAvailableException` | in `chain` mode, every renderer is unavailable; `getFailures()` returns each error |
 | `InvalidArgumentException` | a diagram or an option is invalid (empty source, unknown option…) |
+
+`BinaryNotFoundException`, `RemoteUnavailableException` and `NoRendererAvailableException` implement `RendererUnavailableException`: catch it to handle "no renderer could run" separately from D2 errors.
 
 In templates, Twig wraps them in a `Twig\Error\RuntimeError` pointing to the template line. For the `{% d2 %}` tag, a D2 syntax error points to the template line of the faulty D2 line, so the Symfony error page highlights it:
 

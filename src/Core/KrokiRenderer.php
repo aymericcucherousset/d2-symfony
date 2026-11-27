@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aymericcucherousset\D2Symfony\Core;
 
 use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
+use Aymericcucherousset\D2Symfony\Core\Exception\RemoteUnavailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -17,6 +18,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * Useful where running binaries is forbidden. The source is sent as the body of
  * `POST {baseUrl}/d2/svg`; render options are sent as `Kroki-Diagram-Options-*` headers.
  * Options Kroki does not support are ignored, with a warning logged.
+ *
+ * Network errors and server errors (HTTP 5xx) throw a {@see RemoteUnavailableException},
+ * so a {@see ChainRenderer} can fall back to another renderer; D2 errors throw a {@see RenderException}.
  */
 final class KrokiRenderer implements VersionAwareRenderer
 {
@@ -25,6 +29,7 @@ final class KrokiRenderer implements VersionAwareRenderer
     private const SUPPORTED_OPTIONS = ['theme', 'layout', 'pad', 'sketch'];
 
     private readonly string $baseUrl;
+    private readonly LoggerInterface $logger;
 
     /**
      * @param string     $baseUrl URL of the Kroki server, optionally with a path prefix (e.g. "https://example.com/kroki")
@@ -34,8 +39,10 @@ final class KrokiRenderer implements VersionAwareRenderer
         private readonly HttpClientInterface $httpClient,
         string $baseUrl = self::DEFAULT_BASE_URL,
         private readonly ?float $timeout = 60.0,
-        private readonly LoggerInterface $logger = new NullLogger(),
+        ?LoggerInterface $logger = null,
     ) {
+        $this->logger = $logger ?? new NullLogger();
+
         $scheme = parse_url($baseUrl, \PHP_URL_SCHEME);
         $host = parse_url($baseUrl, \PHP_URL_HOST);
         if (!\in_array(\is_string($scheme) ? strtolower($scheme) : null, ['http', 'https'], true) || !\is_string($host) || '' === $host) {
@@ -70,7 +77,19 @@ final class KrokiRenderer implements VersionAwareRenderer
             $statusCode = $response->getStatusCode();
             $body = $response->getContent(false);
         } catch (TransportExceptionInterface $e) {
-            throw new RenderException(\sprintf('The Kroki request to "%s" failed: %s', $url, $e->getMessage()), '', $e);
+            throw new RemoteUnavailableException(\sprintf('The Kroki request to "%s" failed: %s', $url, $e->getMessage()), 0, $e);
+        }
+
+        if ($statusCode >= 500) {
+            $error = RenderException::fromD2Error($body);
+            if ([] !== $error->getD2Errors()) {
+                throw $error;
+            }
+
+            $body = trim($body);
+            $excerpt = \strlen($body) > 200 ? substr($body, 0, 200).'…' : $body;
+
+            throw new RemoteUnavailableException(\sprintf('Kroki returned HTTP %d%s', $statusCode, '' === $excerpt ? '.' : ': '.$excerpt));
         }
 
         if ($statusCode >= 300) {

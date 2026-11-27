@@ -7,7 +7,7 @@ namespace Aymericcucherousset\D2Symfony\Core\Exception;
 /**
  * Thrown when the d2 binary is missing or cannot be executed.
  */
-final class BinaryNotFoundException extends \RuntimeException implements D2Exception
+final class BinaryNotFoundException extends \RuntimeException implements RendererUnavailableException
 {
     public const DEFAULT_HINT = 'Install it from https://d2lang.com/tour/install or configure its path.';
 

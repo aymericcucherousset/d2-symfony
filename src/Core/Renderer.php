@@ -6,6 +6,7 @@ namespace Aymericcucherousset\D2Symfony\Core;
 
 use Aymericcucherousset\D2Symfony\Core\Exception\BinaryNotFoundException;
 use Aymericcucherousset\D2Symfony\Core\Exception\D2Exception;
+use Aymericcucherousset\D2Symfony\Core\Exception\RendererUnavailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
 
 /**
@@ -25,8 +26,9 @@ interface Renderer
      *
      * @return non-empty-string the SVG markup
      *
-     * @throws RenderException         when D2 rejects the source or rendering fails
-     * @throws BinaryNotFoundException when the renderer relies on a d2 binary that cannot be executed
+     * @throws RenderException              when D2 rejects the source or rendering fails
+     * @throws BinaryNotFoundException      when the renderer relies on a d2 binary that cannot be executed
+     * @throws RendererUnavailableException when the renderer cannot run at all (missing binary, unreachable server…)
      */
     public function render(Diagram $diagram): string;
 }
