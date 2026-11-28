@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Tests\Integration\Bundle;
 
+use Aymericcucherousset\D2Symfony\CommonMark\D2CommonMarkExtension;
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
 use Aymericcucherousset\D2Symfony\Core\ChainRenderer;
@@ -38,6 +39,7 @@ use Symfony\Component\HttpKernel\CacheWarmer\CacheWarmerAggregate;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Twig\Environment;
+use Twig\Extra\TwigExtraBundle\TwigExtraBundle;
 
 final class D2SymfonyBundleKernelTest extends KernelTestCase
 {
@@ -359,6 +361,44 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         self::assertStringStartsWith('<main><svg>', $output);
         self::assertStringContainsString("arg:--layout=elk\n", $output);
         self::assertStringContainsString("stdin:user -> app\n", $output);
+    }
+
+    public function testMarkdownD2CodeBlocksAreRenderedByTheMarkdownToHtmlFilter(): void
+    {
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('The fake d2 binary is a POSIX shell script.');
+        }
+
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestBundle(TwigExtraBundle::class);
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', [
+                    'binary_path' => self::FAKE_D2,
+                    'cache' => false,
+                    'defaults' => ['theme' => 200],
+                ]);
+            });
+        }]);
+
+        $twig = self::getContainer()->get('twig');
+        self::assertInstanceOf(Environment::class, $twig);
+
+        $output = $twig->createTemplate('{{ markdown|markdown_to_html }}')->render([
+            'markdown' => "# Flow\n\n```d2\nuser -> app\n```\n\n```php\necho 1;\n```\n",
+        ]);
+
+        self::assertStringStartsWith("<h1>Flow</h1>\n<svg>\narg:--theme=200\n", $output);
+        self::assertStringContainsString("stdin:user -> app\n", $output);
+        self::assertStringContainsString('<pre><code class="language-php">echo 1;', $output);
+    }
+
+    public function testCommonMarkExtensionCanBeAutowired(): void
+    {
+        self::bootKernel();
+        $container = self::getContainer();
+
+        self::assertInstanceOf(D2CommonMarkExtension::class, $container->get('d2.commonmark.extension'));
+        self::assertSame($container->get('d2.commonmark.extension'), $container->get(D2CommonMarkExtension::class));
     }
 
     public function testTwigFileFunctionRendersFileFromConfiguredRootDirectory(): void
