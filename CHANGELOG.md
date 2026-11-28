@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `bin/console d2:render <input> [-o output.svg]` renders a D2 file (or stdin with `-`) to SVG with the configured renderer and cache; the SVG is written to stdout by default. `--theme`, `--layout` and `--sketch`/`--no-sketch` override `d2.defaults`, and D2 syntax errors are reported as `file:line:column: message`.
+- Bundle: Web Profiler panel (`kernel.debug` and profiler enabled only): previews of the rendered SVG with their collapsible D2 source, render count and duration, cache hits and misses, renderer used and chain fallbacks, plus a toolbar item and Stopwatch events in the `d2` category ([#21](https://github.com/aymericcucherousset/d2-symfony/issues/21)).
+- `bin/console d2:render <input> [-o output.svg]` renders a D2 file (or stdin with `-`) to SVG with the configured renderer and cache; the SVG is written to stdout by default. `--theme`, `--layout` and `--sketch`/`--no-sketch` override `d2.defaults`, and D2 syntax errors are reported as `file:line:column: message` ([#22](https://github.com/aymericcucherousset/d2-symfony/issues/22)).
 
 ## [0.4.0] - 2026-11-28
 

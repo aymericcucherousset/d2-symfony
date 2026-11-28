@@ -246,6 +246,12 @@ d2:
         prerender_static: true # or false; ~ (default) = enabled when kernel.debug is false
 ```
 
+### Web Profiler
+
+With the Symfony profiler enabled (`symfony/web-profiler-bundle`) and `kernel.debug` on, a **D2** panel lists the diagrams rendered during the request: a preview of each SVG, its collapsible D2 source and options, the rendering time, cache hits and misses, and the renderer that produced it (with the renderers skipped by a `chain`). The toolbar shows the number of diagrams and their total rendering time, in red when a render failed. Renders also appear in the Performance panel timeline (`d2` category).
+
+Nothing is decorated in production or when the profiler is disabled.
+
 ### Errors
 
 Every exception thrown by the bundle implements `Aymericcucherousset\D2Symfony\Core\Exception\D2Exception`:

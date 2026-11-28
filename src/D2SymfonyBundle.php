@@ -13,11 +13,18 @@ use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Downloader\BinaryDownloader;
+use Aymericcucherousset\D2Symfony\Profiler\D2DataCollector;
+use Aymericcucherousset\D2Symfony\Profiler\RemoveProfilerServicesPass;
+use Aymericcucherousset\D2Symfony\Profiler\RenderTracer;
+use Aymericcucherousset\D2Symfony\Profiler\TraceableBackendRenderer;
+use Aymericcucherousset\D2Symfony\Profiler\TraceableRenderer;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
 use Aymericcucherousset\D2Symfony\Twig\D2Runtime;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -167,6 +174,13 @@ final class D2SymfonyBundle extends AbstractBundle
         ;
     }
 
+    public function build(ContainerBuilder $container): void
+    {
+        parent::build($container);
+
+        $container->addCompilerPass(new RemoveProfilerServicesPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION);
+    }
+
     public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         if ($builder->hasExtension('framework')) {
@@ -242,6 +256,10 @@ final class D2SymfonyBundle extends AbstractBundle
         }
         $services->alias(Renderer::class, 'd2.renderer');
 
+        if ($builder->getParameter('kernel.debug')) {
+            $this->registerProfilerServices($services, $renderers, $config['cache']['enabled']);
+        }
+
         $defaults = $config['defaults'];
         $services->set('d2.default_options', RenderOptions::class)
             ->args([$defaults['theme'], $defaults['layout'], $defaults['pad'], $defaults['sketch']]);
@@ -269,6 +287,33 @@ final class D2SymfonyBundle extends AbstractBundle
     public static function createHttpClient(?HttpClientInterface $client = null): HttpClientInterface
     {
         return $client ?? HttpClient::create();
+    }
+
+    /**
+     * Traces renders for the Web Profiler; removed by {@see RemoveProfilerServicesPass} when the profiler is disabled.
+     *
+     * @param list<'binary'|'kroki'> $renderers
+     */
+    private function registerProfilerServices(ServicesConfigurator $services, array $renderers, bool $cached): void
+    {
+        $prefix = RemoveProfilerServicesPass::PREFIX;
+
+        $services->set($prefix.'tracer', RenderTracer::class)
+            ->tag('kernel.reset', ['method' => 'reset']);
+
+        foreach ($renderers as $name) {
+            $services->set($prefix.'renderer.'.$name, TraceableBackendRenderer::class)
+                ->decorate('d2.renderer.'.$name)
+                ->args([service('.inner'), service($prefix.'tracer'), $name]);
+        }
+
+        $services->set($prefix.'renderer', TraceableRenderer::class)
+            ->decorate('d2.renderer')
+            ->args([service('.inner'), service($prefix.'tracer'), $cached, service('debug.stopwatch')->nullOnInvalid()]);
+
+        $services->set($prefix.'data_collector', D2DataCollector::class)
+            ->args([service($prefix.'tracer')])
+            ->tag('data_collector', ['id' => 'd2', 'template' => '@D2Symfony/Collector/d2.html.twig']);
     }
 
     private static function createRenderOptions(mixed $options): RenderOptions
