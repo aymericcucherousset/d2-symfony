@@ -7,6 +7,7 @@ namespace Aymericcucherousset\D2Symfony\Command;
 use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Exception\D2Exception;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
+use Aymericcucherousset\D2Symfony\Core\Layout;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -35,14 +36,18 @@ final class RenderCommand extends Command
         $this
             ->addArgument('input', InputArgument::REQUIRED, 'Path to the .d2 file, or "-" to read from stdin')
             ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Write the SVG to this file instead of stdout')
-            ->addOption('theme', 't', InputOption::VALUE_REQUIRED, 'd2 theme ID')
-            ->addOption('layout', 'l', InputOption::VALUE_REQUIRED, 'Layout engine, e.g. "dagre" or "elk"')
+            ->addOption('theme', 't', InputOption::VALUE_REQUIRED, 'd2 theme ID (see "d2 themes")')
+            ->addOption('dark-theme', null, InputOption::VALUE_REQUIRED, 'd2 theme ID used when the browser is in dark mode')
+            ->addOption('layout', 'l', InputOption::VALUE_REQUIRED, 'Layout engine: '.implode(', ', Layout::values()))
+            ->addOption('pad', null, InputOption::VALUE_REQUIRED, 'Padding around the diagram, in pixels')
+            ->addOption('scale', null, InputOption::VALUE_REQUIRED, 'Scale factor, e.g. 0.5 halves the size')
             ->addOption('sketch', 's', InputOption::VALUE_NEGATABLE, 'Render with a hand-drawn look (--no-sketch disables it)')
+            ->addOption('center', 'c', InputOption::VALUE_NEGATABLE, 'Center the SVG in its viewbox (--no-center disables it)')
             ->setHelp(<<<'HELP'
                 The <info>%command.name%</info> command renders a D2 file to SVG and prints it on stdout:
 
                   <info>php %command.full_name% diagram.d2 > diagram.svg</info>
-                  <info>php %command.full_name% diagram.d2 -o public/diagram.svg --theme=200 --sketch</info>
+                  <info>php %command.full_name% diagram.d2 -o public/diagram.svg --theme=200 --dark-theme=201 --sketch</info>
                   <info>cat diagram.d2 | php %command.full_name% -</info>
 
                 Diagrams are rendered with the configured renderer (<comment>d2.renderer</comment>: binary,
@@ -117,27 +122,41 @@ final class RenderCommand extends Command
 
     /**
      * @throws D2Exception            on invalid option values
-     * @throws InvalidOptionException when --theme is not an integer
+     * @throws InvalidOptionException when a numeric option is not a number
      */
     private function options(InputInterface $input): RenderOptions
     {
         $options = [];
 
-        /** @var string|null $theme */
-        $theme = $input->getOption('theme');
-        if (null !== $theme) {
-            if (1 !== preg_match('/^\d+$/', $theme)) {
-                throw new InvalidOptionException(\sprintf('The "--theme" option must be a theme ID (a positive integer), "%s" given.', $theme));
+        foreach (['theme' => 'theme', 'dark-theme' => 'dark_theme', 'pad' => 'pad'] as $flag => $name) {
+            /** @var string|null $value */
+            $value = $input->getOption($flag);
+            if (null === $value) {
+                continue;
             }
-            $options['theme'] = (int) $theme;
+            if (1 !== preg_match('/^\d+$/', $value)) {
+                throw new InvalidOptionException(\sprintf('The "--%s" option must be a positive integer, "%s" given.', $flag, $value));
+            }
+            $options[$name] = (int) $value;
+        }
+
+        /** @var string|null $scale */
+        $scale = $input->getOption('scale');
+        if (null !== $scale) {
+            if (!is_numeric($scale)) {
+                throw new InvalidOptionException(\sprintf('The "--scale" option must be a number, "%s" given.', $scale));
+            }
+            $options['scale'] = (float) $scale;
         }
 
         if (null !== $layout = $input->getOption('layout')) {
             $options['layout'] = $layout;
         }
 
-        if (null !== $sketch = $input->getOption('sketch')) {
-            $options['sketch'] = (bool) $sketch;
+        foreach (['sketch', 'center'] as $flag) {
+            if (null !== $value = $input->getOption($flag)) {
+                $options[$flag] = (bool) $value;
+            }
         }
 
         return $this->defaults->merge($options);

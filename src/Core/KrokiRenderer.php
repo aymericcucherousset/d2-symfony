@@ -26,7 +26,15 @@ final class KrokiRenderer implements VersionAwareRenderer
 {
     public const DEFAULT_BASE_URL = 'https://kroki.io';
 
-    private const SUPPORTED_OPTIONS = ['theme', 'layout', 'pad', 'sketch'];
+    /** D2 option name => Kroki option name; other options (center, fonts) are not supported by Kroki. */
+    private const SUPPORTED_OPTIONS = [
+        'theme' => 'theme',
+        'dark_theme' => 'dark-theme',
+        'layout' => 'layout',
+        'pad' => 'pad',
+        'sketch' => 'sketch',
+        'scale' => 'scale',
+    ];
 
     private readonly string $baseUrl;
     private readonly LoggerInterface $logger;
@@ -125,13 +133,13 @@ final class KrokiRenderer implements VersionAwareRenderer
         $headers = [];
 
         foreach ($options->toArray() as $name => $value) {
-            if (!\in_array($name, self::SUPPORTED_OPTIONS, true)) {
+            if (!isset(self::SUPPORTED_OPTIONS[$name])) {
                 $this->logger->warning('The D2 option "{option}" is not supported by Kroki and is ignored.', ['option' => $name]);
 
                 continue;
             }
 
-            $headers['Kroki-Diagram-Options-'.$name] = true === $value ? 'true' : (string) $value;
+            $headers['Kroki-Diagram-Options-'.self::SUPPORTED_OPTIONS[$name]] = true === $value ? 'true' : (string) $value;
         }
 
         return $headers;

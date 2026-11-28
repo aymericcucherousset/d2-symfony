@@ -17,7 +17,7 @@ use Symfony\Contracts\Service\ResetInterface;
  * @phpstan-type Attempt array{renderer: string, status: 'success'|'unavailable'|'error', message: string|null}
  * @phpstan-type Trace array{
  *     source: string,
- *     options: array<string, int|string|true>,
+ *     options: array<string, int|float|string|true>,
  *     svg: string|null,
  *     error: array{class: class-string, message: string}|null,
  *     duration: float,
@@ -33,7 +33,7 @@ final class RenderTracer implements ResetInterface
     /** @var list<Trace> */
     private array $traces = [];
 
-    /** @var list<array{source: string, options: array<string, int|string|true>, start: float, attempts: list<Attempt>}> */
+    /** @var list<array{source: string, options: array<string, int|float|string|true>, start: float, attempts: list<Attempt>}> */
     private array $stack = [];
 
     public function start(Diagram $diagram): void

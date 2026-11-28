@@ -87,10 +87,17 @@ d2:
     # Options applied to every diagram unless overridden.
     # ~ means "use the d2 default".
     defaults:
-        theme: ~      # d2 theme ID, e.g. 200 (dark mauve)
-        layout: ~     # layout engine: dagre (d2 default) or elk
-        pad: ~        # padding around the diagram, in pixels (d2 default: 100)
-        sketch: false # hand-drawn look
+        theme: ~         # d2 theme ID, e.g. 200 (Dark Mauve); see the Theme enum
+        dark_theme: ~    # theme ID used when the viewer's browser is in dark mode
+        layout: ~        # layout engine: dagre (d2 default), elk or tala (TALA plugin)
+        pad: ~           # padding around the diagram, in pixels (d2 default: 100)
+        sketch: false    # hand-drawn look
+        center: false    # center the SVG in its viewbox (local binary only)
+        scale: ~         # scale factor, e.g. 0.5; ~ fits SVG to the screen
+        font_regular: ~  # path to a .ttf file (local binary only); also
+        font_italic: ~   # font_italic, font_bold and font_semibold
+        font_bold: ~
+        font_semibold: ~
 
     # Cache rendered SVG (set to false to disable).
     cache:
@@ -102,7 +109,7 @@ d2:
         prerender_static: ~
 ```
 
-Invalid values (negative padding, unknown layout format, unknown keys…) are rejected when the container is built.
+Invalid values (unknown theme ID or layout engine, negative padding, a scale of 0, unknown keys…) are rejected when the container is built. In PHP configuration files, `theme`, `dark_theme` and `layout` also accept the `Theme` and `Layout` enums.
 
 ## Usage
 
@@ -129,7 +136,7 @@ db: { shape: cylinder }
 </figure>
 ```
 
-Available options: `theme` (int), `layout` (string), `pad` (int) and `sketch` (bool); `null` resets an option to the d2 default. Twig variables work as usual: `{{ diagram.source|d2 }}`.
+Available options: `theme` and `dark_theme` (theme ID), `layout` (`dagre`, `elk` or `tala`), `pad` (int), `scale` (number), `sketch` and `center` (bool), and `font_regular`, `font_italic`, `font_bold` and `font_semibold` (paths to .ttf files); `null` resets an option to the d2 default. Twig variables work as usual: `{{ diagram.source|d2 }}`.
 
 The `{% d2 %}` tag lets you write the diagram directly in the template, with the same options:
 
@@ -150,6 +157,7 @@ Autowire the `Renderer` service anywhere in your application:
 
 ```php
 use Aymericcucherousset\D2Symfony\Core\Diagram;
+use Aymericcucherousset\D2Symfony\Core\Layout;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Symfony\Component\HttpFoundation\Response;
@@ -164,7 +172,7 @@ final class DiagramController
     {
         $svg = $this->renderer->render(new Diagram(
             'a -> b',
-            new RenderOptions(layout: 'elk', sketch: true),
+            new RenderOptions(layout: Layout::Elk, sketch: true),
         ));
 
         return new Response($svg, headers: ['Content-Type' => 'image/svg+xml']);
@@ -172,17 +180,30 @@ final class DiagramController
 }
 ```
 
+`RenderOptions` is immutable and validated on construction. Themes and layouts are typed with the `Theme` (every official d2 theme, `isDark()`) and `Layout` enums; their IDs and names (`theme: 200`, `layout: 'elk'`) are accepted too:
+
+```php
+use Aymericcucherousset\D2Symfony\Core\Layout;
+use Aymericcucherousset\D2Symfony\Core\RenderOptions;
+use Aymericcucherousset\D2Symfony\Core\Theme;
+
+$options = new RenderOptions(theme: Theme::NeutralDefault, darkTheme: Theme::DarkMauve, layout: Layout::Elk, scale: 0.75);
+$options = $options->withCenter()->withFonts(regular: '/path/to/Inter-Regular.ttf', bold: '/path/to/Inter-Bold.ttf');
+```
+
+Cache keys include the font paths but not the font files: clear `cache.d2` after replacing a font file in place.
+
 ### Command line
 
 `bin/console d2:render` renders a `.d2` file with the configured renderer (binary, Kroki or chain) and cache. The SVG goes to stdout unless `-o` is given:
 
 ```bash
 bin/console d2:render diagram.d2 > diagram.svg
-bin/console d2:render diagram.d2 -o public/diagram.svg --theme=200 --layout=elk --sketch
+bin/console d2:render diagram.d2 -o public/diagram.svg --theme=0 --dark-theme=200 --layout=elk --sketch
 cat diagram.d2 | bin/console d2:render -
 ```
 
-Options that aren't given use `d2.defaults`; `--no-sketch` turns off a sketch default. D2 syntax errors are reported as `file:line:column: message`.
+`--theme`, `--dark-theme`, `--layout`, `--pad`, `--scale`, `--sketch` and `--center` are available; options that aren't given use `d2.defaults`, and `--no-sketch` / `--no-center` turn off a default. D2 syntax errors are reported as `file:line:column: message`.
 
 ### Choosing a renderer
 
@@ -203,7 +224,7 @@ d2:
 
 In `chain` mode, the next renderer is only tried when the current one is **unavailable**: the d2 binary is missing or not executable, or the Kroki server cannot be reached or returns a server error (HTTP 5xx). D2 syntax errors and timeouts are thrown right away, since another renderer would not do better. When every renderer is unavailable, a `NoRendererAvailableException` lists each error.
 
-Kroki receives the `theme`, `layout`, `pad` and `sketch` options. Options it does not support are ignored, and a warning is logged on the `d2` channel. To authenticate against a self-hosted instance, point `d2.kroki.http_client` to a [scoped client](https://symfony.com/doc/current/http_client.html#scoping-client) with the right headers.
+Kroki receives the `theme`, `dark_theme`, `layout`, `pad`, `sketch` and `scale` options. Options it does not support (`center`, fonts) are ignored, and a warning is logged on the `d2` channel. To authenticate against a self-hosted instance, point `d2.kroki.http_client` to a [scoped client](https://symfony.com/doc/current/http_client.html#scoping-client) with the right headers.
 
 > [!NOTE]
 > With `kroki` or `chain`, the diagram source may be sent to the Kroki server. Use a self-hosted instance for private diagrams.

@@ -9,58 +9,129 @@ use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
 /**
  * Immutable set of options passed to the d2 renderer.
  *
- * A null value (or false for sketch) means "use the d2 default": the
+ * A null value (or false for flags) means "use the d2 default": the
  * corresponding flag is not emitted.
+ *
+ * Option names, as used by {@see merge()}, {@see toArray()}, Twig and the bundle
+ * configuration: theme, dark_theme, layout, pad, sketch, center, scale,
+ * font_regular, font_italic, font_bold and font_semibold.
  */
 final readonly class RenderOptions
 {
-    private const LAYOUT_PATTERN = '/^[a-z0-9_-]+$/';
-    private const OPTION_NAMES = ['theme', 'layout', 'pad', 'sketch'];
+    /** Option name => constructor parameter. */
+    private const OPTIONS = [
+        'theme' => 'theme',
+        'dark_theme' => 'darkTheme',
+        'layout' => 'layout',
+        'pad' => 'pad',
+        'sketch' => 'sketch',
+        'center' => 'center',
+        'scale' => 'scale',
+        'font_regular' => 'fontRegular',
+        'font_italic' => 'fontItalic',
+        'font_bold' => 'fontBold',
+        'font_semibold' => 'fontSemibold',
+    ];
 
+    public ?Theme $theme;
+    public ?Theme $darkTheme;
+    public ?Layout $layout;
+
+    /**
+     * @param Theme|int|null     $theme        theme of the diagram, or of its light mode when $darkTheme is set
+     * @param Layout|string|null $layout       layout engine
+     * @param int|null           $pad          padding around the diagram, in pixels (d2 default: 100)
+     * @param bool               $sketch       hand-drawn look
+     * @param Theme|int|null     $darkTheme    theme used when the viewer's browser is in dark mode
+     * @param bool               $center       center the SVG in its viewbox
+     * @param float|null         $scale        scale factor (e.g. 0.5 halves the size); null fits SVG to the screen
+     * @param string|null        $fontRegular  path to the .ttf file used for regular text
+     * @param string|null        $fontItalic   path to the .ttf file used for italic text
+     * @param string|null        $fontBold     path to the .ttf file used for bold text
+     * @param string|null        $fontSemibold path to the .ttf file used for semibold text
+     *
+     * @throws InvalidArgumentException on unknown themes or layouts, or out of range values
+     */
     public function __construct(
-        public ?int $theme = null,
-        public ?string $layout = null,
+        Theme|int|null $theme = null,
+        Layout|string|null $layout = null,
         public ?int $pad = null,
         public bool $sketch = false,
+        Theme|int|null $darkTheme = null,
+        public bool $center = false,
+        public ?float $scale = null,
+        public ?string $fontRegular = null,
+        public ?string $fontItalic = null,
+        public ?string $fontBold = null,
+        public ?string $fontSemibold = null,
     ) {
-        if (null !== $theme && $theme < 0) {
-            throw new InvalidArgumentException(\sprintf('The theme ID must be a positive integer, %d given.', $theme));
-        }
-
-        if (null !== $layout && 1 !== preg_match(self::LAYOUT_PATTERN, $layout)) {
-            throw new InvalidArgumentException(\sprintf('The layout engine "%s" is invalid: only lowercase letters, digits, "-" and "_" are allowed.', $layout));
-        }
+        $this->theme = self::theme($theme, 'theme');
+        $this->darkTheme = self::theme($darkTheme, 'dark_theme');
+        $this->layout = self::layout($layout);
 
         if (null !== $pad && $pad < 0) {
             throw new InvalidArgumentException(\sprintf('The padding must be a positive integer, %d given.', $pad));
         }
+
+        if (null !== $scale && (!is_finite($scale) || $scale <= 0)) {
+            throw new InvalidArgumentException(\sprintf('The scale must be a number greater than 0, %s given.', $scale));
+        }
+
+        foreach (['font_regular' => $fontRegular, 'font_italic' => $fontItalic, 'font_bold' => $fontBold, 'font_semibold' => $fontSemibold] as $name => $font) {
+            if (null !== $font && ('' === trim($font) || str_contains($font, "\0"))) {
+                throw new InvalidArgumentException(\sprintf('The D2 option "%s" must be the path to a .ttf file.', $name));
+            }
+        }
     }
 
-    public function withTheme(?int $theme): self
+    public function withTheme(Theme|int|null $theme): self
     {
-        return new self($theme, $this->layout, $this->pad, $this->sketch);
+        return $this->with(['theme' => $theme]);
     }
 
-    public function withLayout(?string $layout): self
+    public function withDarkTheme(Theme|int|null $darkTheme): self
     {
-        return new self($this->theme, $layout, $this->pad, $this->sketch);
+        return $this->with(['darkTheme' => $darkTheme]);
+    }
+
+    public function withLayout(Layout|string|null $layout): self
+    {
+        return $this->with(['layout' => $layout]);
     }
 
     public function withPad(?int $pad): self
     {
-        return new self($this->theme, $this->layout, $pad, $this->sketch);
+        return $this->with(['pad' => $pad]);
     }
 
     public function withSketch(bool $sketch = true): self
     {
-        return new self($this->theme, $this->layout, $this->pad, $sketch);
+        return $this->with(['sketch' => $sketch]);
+    }
+
+    public function withCenter(bool $center = true): self
+    {
+        return $this->with(['center' => $center]);
+    }
+
+    public function withScale(?float $scale): self
+    {
+        return $this->with(['scale' => $scale]);
+    }
+
+    /**
+     * Returns a copy using the given .ttf files; a null font uses the d2 default font.
+     */
+    public function withFonts(?string $regular = null, ?string $italic = null, ?string $bold = null, ?string $semibold = null): self
+    {
+        return $this->with(['fontRegular' => $regular, 'fontItalic' => $italic, 'fontBold' => $bold, 'fontSemibold' => $semibold]);
     }
 
     /**
      * Returns a copy with the given options overridden, e.g. from Twig or configuration arrays.
      *
-     * Accepted keys are "theme", "layout", "pad" and "sketch"; a null value resets the
-     * option to the d2 default.
+     * Keys are option names (see the class description); a null value resets the option to
+     * the d2 default. Themes accept a {@see Theme} or its ID, layouts a {@see Layout} or its name.
      *
      * @param array<array-key, mixed> $options
      *
@@ -68,31 +139,25 @@ final readonly class RenderOptions
      */
     public function merge(array $options): self
     {
-        $unknown = array_diff(array_map('strval', array_keys($options)), self::OPTION_NAMES);
+        $unknown = array_diff(array_map('strval', array_keys($options)), array_keys(self::OPTIONS));
         if ([] !== $unknown) {
-            throw new InvalidArgumentException(\sprintf('Unknown D2 option(s) "%s"; allowed options are "%s".', implode('", "', $unknown), implode('", "', self::OPTION_NAMES)));
+            throw new InvalidArgumentException(\sprintf('Unknown D2 option(s) "%s"; allowed options are "%s".', implode('", "', $unknown), implode('", "', array_keys(self::OPTIONS))));
         }
 
-        $theme = \array_key_exists('theme', $options) ? self::nullableInt($options, 'theme') : $this->theme;
-        $pad = \array_key_exists('pad', $options) ? self::nullableInt($options, 'pad') : $this->pad;
-        $layout = $this->layout;
-        $sketch = $this->sketch;
-
-        if (\array_key_exists('layout', $options)) {
-            $layout = $options['layout'];
-            if (null !== $layout && !\is_string($layout)) {
-                throw new InvalidArgumentException(\sprintf('The D2 option "layout" must be a string or null, %s given.', get_debug_type($layout)));
-            }
+        $changes = [];
+        foreach ($options as $name => $value) {
+            $name = (string) $name;
+            $changes[self::OPTIONS[$name]] = match ($name) {
+                'theme', 'dark_theme' => self::typed($name, $value, Theme::class, 'int', 'a theme ID'),
+                'layout' => self::typed($name, $value, Layout::class, 'string', 'a layout name'),
+                'pad' => self::typed($name, $value, null, 'int', 'an integer'),
+                'sketch', 'center' => self::typed($name, $value, null, 'bool', 'a boolean') ?? false,
+                'scale' => \is_int($value) ? (float) $value : self::typed($name, $value, null, 'float', 'a number'),
+                default => self::typed($name, $value, null, 'string', 'a file path'),
+            };
         }
 
-        if (\array_key_exists('sketch', $options)) {
-            $sketch = $options['sketch'] ?? false;
-            if (!\is_bool($sketch)) {
-                throw new InvalidArgumentException(\sprintf('The D2 option "sketch" must be a boolean or null, %s given.', get_debug_type($sketch)));
-            }
-        }
-
-        return new self($theme, $layout, $pad, $sketch);
+        return $this->with($changes);
     }
 
     /**
@@ -104,20 +169,9 @@ final readonly class RenderOptions
     {
         $arguments = [];
 
-        if (null !== $this->theme) {
-            $arguments[] = '--theme='.$this->theme;
-        }
-
-        if (null !== $this->layout) {
-            $arguments[] = '--layout='.$this->layout;
-        }
-
-        if (null !== $this->pad) {
-            $arguments[] = '--pad='.$this->pad;
-        }
-
-        if ($this->sketch) {
-            $arguments[] = '--sketch';
+        foreach ($this->toArray() as $name => $value) {
+            $flag = '--'.str_replace('_', '-', $name);
+            $arguments[] = true === $value ? $flag : $flag.'='.$value;
         }
 
         return $arguments;
@@ -128,16 +182,24 @@ final readonly class RenderOptions
      *
      * Renderers that do not drive the d2 CLI (e.g. HTTP renderers) map options from this array.
      *
-     * @return array<string, int|string|true>
+     * @return array<string, int|float|string|true>
      */
     public function toArray(): array
     {
+        // The order of the original options (theme, layout, pad, sketch) is kept, so cache keys do not change.
         return array_filter([
-            'theme' => $this->theme,
-            'layout' => $this->layout,
+            'theme' => $this->theme?->value,
+            'dark_theme' => $this->darkTheme?->value,
+            'layout' => $this->layout?->value,
             'pad' => $this->pad,
+            'scale' => $this->scale,
+            'center' => $this->center ?: null,
             'sketch' => $this->sketch ?: null,
-        ], static fn (int|string|bool|null $value): bool => null !== $value);
+            'font_regular' => $this->fontRegular,
+            'font_italic' => $this->fontItalic,
+            'font_bold' => $this->fontBold,
+            'font_semibold' => $this->fontSemibold,
+        ], static fn (int|float|string|bool|null $value): bool => null !== $value);
     }
 
     /**
@@ -149,15 +211,55 @@ final readonly class RenderOptions
     }
 
     /**
-     * @param array<array-key, mixed> $options
+     * @param array<string, mixed> $changes constructor arguments to override
      */
-    private static function nullableInt(array $options, string $name): ?int
+    private function with(array $changes): self
     {
-        $value = $options[$name];
-        if (null !== $value && !\is_int($value)) {
-            throw new InvalidArgumentException(\sprintf('The D2 option "%s" must be an integer or null, %s given.', $name, get_debug_type($value)));
+        /* @phpstan-ignore argument.type (values are type-checked by the constructor) */
+        return new self(...[
+            'theme' => $this->theme,
+            'layout' => $this->layout,
+            'pad' => $this->pad,
+            'sketch' => $this->sketch,
+            'darkTheme' => $this->darkTheme,
+            'center' => $this->center,
+            'scale' => $this->scale,
+            'fontRegular' => $this->fontRegular,
+            'fontItalic' => $this->fontItalic,
+            'fontBold' => $this->fontBold,
+            'fontSemibold' => $this->fontSemibold,
+            ...$changes,
+        ]);
+    }
+
+    /**
+     * @param class-string<\BackedEnum>|null $enum   an enum also accepted for the option
+     * @param 'int'|'string'|'bool'|'float'  $scalar the scalar type accepted for the option
+     */
+    private static function typed(string $name, mixed $value, ?string $enum, string $scalar, string $expected): mixed
+    {
+        if (null === $value || (null !== $enum && $value instanceof $enum) || get_debug_type($value) === $scalar) {
+            return $value;
         }
 
-        return $value;
+        throw new InvalidArgumentException(\sprintf('The D2 option "%s" must be %s or null, %s given.', $name, $expected, get_debug_type($value)));
+    }
+
+    private static function theme(Theme|int|null $theme, string $name): ?Theme
+    {
+        if (!\is_int($theme)) {
+            return $theme;
+        }
+
+        return Theme::tryFrom($theme) ?? throw new InvalidArgumentException(\sprintf('Unknown d2 theme ID %d for "%s"; available themes are %s.', $theme, $name, implode(', ', array_map(static fn (Theme $theme): string => $theme->value.' ('.$theme->name.')', Theme::cases()))));
+    }
+
+    private static function layout(Layout|string|null $layout): ?Layout
+    {
+        if (!\is_string($layout)) {
+            return $layout;
+        }
+
+        return Layout::tryFrom($layout) ?? throw new InvalidArgumentException(\sprintf('Unknown layout engine "%s"; available layout engines are "%s".', $layout, implode('", "', Layout::values())));
     }
 }
