@@ -39,6 +39,7 @@
         "symfony/process": "^6.4 || ^7.4 || ^8.0"
     },
     "require-dev": {
+        "deptrac/deptrac": "^4.7",
         "friendsofphp/php-cs-fixer": "^3.64",
         "nyholm/symfony-bundle-test": "^3.1",
         "phpstan/extension-installer": "^1.4",
@@ -79,9 +80,11 @@
         "phpstan": "phpstan analyse --memory-limit=-1",
         "cs": "php-cs-fixer check --diff",
         "cs-fix": "php-cs-fixer fix",
+        "deptrac": "deptrac analyse",
         "ci": [
             "@cs",
             "@phpstan",
+            "@deptrac",
             "@test"
         ]
     },
