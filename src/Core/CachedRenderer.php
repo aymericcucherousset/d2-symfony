@@ -8,9 +8,9 @@ use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
 use Psr\Cache\CacheItemPoolInterface;
 
 /**
- * Caches the SVG produced by another renderer in a PSR-6 pool.
+ * Caches the documents (SVG, PNG, PDF) produced by another renderer in a PSR-6 pool.
  *
- * The cache key is built from the diagram fingerprint (source and options) and the
+ * The cache key is built from the diagram fingerprint (source and options, format included) and the
  * version of the rendering engine, so diagrams are rendered again after an upgrade.
  * Failed renders are never cached.
  */

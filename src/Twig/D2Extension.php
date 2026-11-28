@@ -9,8 +9,9 @@ use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 
 /**
- * Provides the `|d2` filter (`{{ source|d2({ theme: 200, sketch: true }) }}`)
- * and the `{% d2 with { theme: 200 } %}…{% endd2 %}` tag.
+ * Provides the `|d2` filter (`{{ source|d2({ theme: 200, sketch: true }) }}`),
+ * the `{% d2 with { theme: 200 } %}…{% endd2 %}` tag, and the `|d2_data_uri` filter
+ * (`<img src="{{ source|d2_data_uri }}">`, PNG by default).
  *
  * Rendering happens in the lazily loaded {@see D2Runtime}.
  */
@@ -27,6 +28,8 @@ final class D2Extension extends AbstractExtension
     {
         return [
             new TwigFilter('d2', [D2Runtime::class, 'render'], ['is_safe' => ['html']]),
+            // Only base64 characters: nothing to escape in HTML text or quoted attributes.
+            new TwigFilter('d2_data_uri', [D2Runtime::class, 'dataUri'], ['is_safe' => ['html']]),
         ];
     }
 

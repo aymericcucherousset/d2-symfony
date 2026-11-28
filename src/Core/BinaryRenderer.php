@@ -15,8 +15,10 @@ use Symfony\Component\Process\Process;
 /**
  * Renders diagrams with a local d2 binary.
  *
- * The source is piped through stdin and the SVG read from stdout
- * (`d2 [options] - -`): no temporary file is written.
+ * The source is piped through stdin and the document read from stdout
+ * (`d2 [options] - -`): no temporary file is written. PNG and PDF are requested
+ * with `--stdout-format`; d2 v0.9.0 and later render them natively, older versions
+ * download Playwright and Chromium on the first export and may not write PDF to stdout.
  */
 final class BinaryRenderer implements VersionAwareRenderer
 {

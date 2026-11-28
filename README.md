@@ -20,6 +20,7 @@ Write [D2](https://d2lang.com) diagrams as text in your Twig templates and get i
 - Symfony 6.4, 7.4 or 8.x
 - Twig 3.21 or later (`symfony/twig-bundle`), for the `|d2` filter and `{% d2 %}` tag
 - The [`d2` binary](https://d2lang.com/tour/install), downloaded for you by `bin/console d2:download` (Linux, macOS and Windows on amd64 or arm64)
+- For [PNG and PDF output](#png-and-pdf): the local binary, d2 v0.9.0 or later recommended (older versions need Playwright, see below)
 
 ## Installation
 
@@ -136,7 +137,7 @@ db: { shape: cylinder }
 </figure>
 ```
 
-Available options: `theme` and `dark_theme` (theme ID), `layout` (`dagre`, `elk` or `tala`), `pad` (int), `scale` (number), `sketch` and `center` (bool), and `font_regular`, `font_italic`, `font_bold` and `font_semibold` (paths to .ttf files); `null` resets an option to the d2 default. Twig variables work as usual: `{{ diagram.source|d2 }}`.
+Available options: `theme` and `dark_theme` (theme ID), `layout` (`dagre`, `elk` or `tala`), `pad` (int), `scale` (number), `sketch` and `center` (bool), and `font_regular`, `font_italic`, `font_bold` and `font_semibold` (paths to .ttf files); `null` resets an option to the d2 default. `format` (`svg`, `png`, `pdf`) is only accepted by [`|d2_data_uri`](#png-and-pdf): `|d2` and `{% d2 %}` always output inline SVG. Twig variables work as usual: `{{ diagram.source|d2 }}`.
 
 The `{% d2 %}` tag lets you write the diagram directly in the template, with the same options:
 
@@ -204,6 +205,45 @@ cat diagram.d2 | bin/console d2:render -
 ```
 
 `--theme`, `--dark-theme`, `--layout`, `--pad`, `--scale`, `--sketch` and `--center` are available; options that aren't given use `d2.defaults`, and `--no-sketch` / `--no-center` turn off a default. D2 syntax errors are reported as `file:line:column: message`.
+
+`--format` (`svg`, `png` or `pdf`) selects the output format; without it, the extension of `-o` is used, and SVG otherwise:
+
+```bash
+bin/console d2:render diagram.d2 -o docs/diagram.png
+bin/console d2:render diagram.d2 --format=pdf > diagram.pdf
+```
+
+### PNG and PDF
+
+Diagrams render to SVG by default. The `format` option renders them to PNG or PDF instead; the renderer then returns the binary document:
+
+```php
+use Aymericcucherousset\D2Symfony\Core\Diagram;
+use Aymericcucherousset\D2Symfony\Core\Format;
+use Aymericcucherousset\D2Symfony\Core\RenderOptions;
+
+$png = $renderer->render(new Diagram('a -> b', new RenderOptions(format: Format::Png, scale: 2.0)));
+
+return new Response($png, headers: ['Content-Type' => Format::Png->mimeType()]);
+```
+
+In Twig, `|d2_data_uri` returns a base64 `data:` URI, PNG by default. It is meant for places where inline SVG does not work, such as HTML-to-PDF generators (Dompdf, wkhtmltopdf…) or emails:
+
+```twig
+<img src="{{ architecture|d2_data_uri }}" alt="Architecture">
+<img src="{{ architecture|d2_data_uri({ theme: 200, scale: 2 }) }}" alt="Architecture">
+{{ architecture|d2_data_uri({ format: 'svg' }) }} {# data:image/svg+xml;base64,… #}
+```
+
+Some email clients (Gmail in particular) do not display `data:` images: for emails sent to them, render the PNG with the `Renderer` service and attach it inline with Symfony Mailer (`$email->addPart((new DataPart($png, 'diagram.png', 'image/png'))->asInline())`, then `<img src="cid:diagram.png">`).
+
+Requirements:
+
+- **Local binary only.** Kroki only renders D2 to SVG: with the `kroki` renderer, PNG and PDF throw an `UnsupportedFormatException`, and the `chain` renderer moves on to the next renderer (e.g. the local binary).
+- **d2 v0.9.0 or later** (the version installed by `d2:download`) renders PNG and PDF itself: nothing else to install.
+- **Older d2 versions** render PNG and PDF with [Playwright](https://playwright.dev): on the first export, d2 downloads Playwright and a headless Chromium into the cache directory of the user running PHP. That requires network access, a writable home directory, the system libraries Chromium depends on, and a `d2.timeout` long enough for the download; PNG output to stdout also requires d2 v0.6.9 or later. Installing d2 v0.9.0 with `bin/console d2:download` avoids all of this.
+
+Rendered documents are cached like SVG, under a key that includes the format. The Web Profiler previews PNG diagrams; PDF documents have no preview.
 
 ### Choosing a renderer
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Profiler;
 
+use Aymericcucherousset\D2Symfony\Core\Format;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\DataCollector\DataCollector;
@@ -42,13 +43,15 @@ final class D2DataCollector extends DataCollector implements LateDataCollectorIn
     {
         $renders = [];
         foreach ($this->tracer->getTraces() as $trace) {
-            $svg = $trace['svg'];
+            $document = $trace['svg'];
             unset($trace['svg']);
+            $format = Format::tryFrom((string) ($trace['options']['format'] ?? Format::Svg->value)) ?? Format::Svg;
 
-            // Shown in an <img>, so the SVG styles and scripts cannot leak into the profiler page.
+            // Shown in an <img>, so the SVG styles and scripts cannot leak into the profiler page;
+            // browsers do not display PDF documents in an <img>, so they get no preview.
             $renders[] = $trace + [
-                'svg_data_uri' => null === $svg ? null : 'data:image/svg+xml;base64,'.base64_encode($svg),
-                'svg_size' => null === $svg ? 0 : \strlen($svg),
+                'svg_data_uri' => null === $document || Format::Pdf === $format ? null : 'data:'.$format->mimeType().';base64,'.base64_encode($document),
+                'svg_size' => null === $document ? 0 : \strlen($document),
             ];
         }
 

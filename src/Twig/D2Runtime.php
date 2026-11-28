@@ -6,7 +6,9 @@ namespace Aymericcucherousset\D2Symfony\Twig;
 
 use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Exception\D2Exception;
+use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
+use Aymericcucherousset\D2Symfony\Core\Format;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Twig\Error\RuntimeError;
@@ -26,13 +28,35 @@ final readonly class D2Runtime implements RuntimeExtensionInterface
      * @param array<array-key, mixed> $options overrides of the default options, see {@see RenderOptions}
      *
      * @throws D2Exception
+     * @throws InvalidArgumentException when the options ask for another format than SVG
      */
     public function render(string|\Stringable $source, array $options = []): string
     {
-        $svg = $this->renderer->render(new Diagram((string) $source, $this->defaults->merge($options)));
+        $options = $this->defaults->merge($options);
+        if (Format::Svg !== $options->format) {
+            throw new InvalidArgumentException(\sprintf('The "d2" filter and tag output inline SVG and cannot render to %s; use the "d2_data_uri" filter instead.', strtoupper($options->format->value)));
+        }
+
+        $svg = $this->renderer->render(new Diagram((string) $source, $options));
 
         // An XML declaration is not valid inside an HTML document.
         return preg_replace('/^\s*<\?xml[^>]*\?>\s*/', '', $svg) ?? $svg;
+    }
+
+    /**
+     * Renders D2 source to a base64 data URI, PNG by default (e.g. for PDF generators and emails).
+     *
+     * @param array<array-key, mixed> $options overrides of the default options, see {@see RenderOptions};
+     *                                         "format" selects SVG, PNG (default, also when null) or PDF
+     *
+     * @throws D2Exception
+     */
+    public function dataUri(string|\Stringable $source, array $options = []): string
+    {
+        // A null format means "the default" here too, which is PNG for data URIs.
+        $options = $this->defaults->merge([...$options, 'format' => $options['format'] ?? Format::Png]);
+
+        return 'data:'.$options->format->mimeType().';base64,'.base64_encode($this->renderer->render(new Diagram((string) $source, $options)));
     }
 
     /**

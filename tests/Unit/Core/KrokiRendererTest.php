@@ -8,6 +8,8 @@ use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RemoteUnavailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
+use Aymericcucherousset\D2Symfony\Core\Exception\UnsupportedFormatException;
+use Aymericcucherousset\D2Symfony\Core\Format;
 use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Core\Theme;
@@ -36,6 +38,21 @@ final class KrokiRendererTest extends TestCase
         self::assertSame('text/plain', $headers['content-type']);
         self::assertSame('image/svg+xml', $headers['accept']);
         self::assertSame([], array_filter(array_keys($headers), static fn (string $name): bool => str_starts_with($name, 'kroki-')));
+    }
+
+    public function testOtherFormatsThanSvgAreUnsupportedWithoutARequest(): void
+    {
+        $client = new MockHttpClient(static fn (): never => throw new \LogicException('No request expected.'));
+
+        try {
+            (new KrokiRenderer($client))->render(new Diagram('a -> b', new RenderOptions(format: Format::Png)));
+            self::fail('An UnsupportedFormatException was expected.');
+        } catch (UnsupportedFormatException $e) {
+            self::assertSame(Format::Png, $e->getFormat());
+            self::assertSame('The Kroki renderer cannot render diagrams to PNG.', $e->getMessage());
+        }
+
+        self::assertSame(0, $client->getRequestsCount());
     }
 
     public function testOptionsAreSentAsKrokiHeaders(): void
