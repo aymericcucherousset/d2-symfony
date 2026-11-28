@@ -45,6 +45,16 @@ final class BinaryRendererTest extends TestCase
         self::assertSame("<svg>\narg:-\narg:-\nstdin:x\n</svg>\n", $renderer->render(new Diagram('x')));
     }
 
+    public function testFormatIsRequestedOnStdout(): void
+    {
+        $renderer = new BinaryRenderer(self::BIN_DIR.'/fake-d2-echo');
+
+        self::assertSame(
+            "<svg>\narg:--stdout-format=png\narg:-\narg:-\nstdin:x\n</svg>\n",
+            $renderer->render(new Diagram('x', new RenderOptions(format: 'png'))),
+        );
+    }
+
     public function testNonZeroExitCodeThrowsRenderExceptionWithRawError(): void
     {
         $renderer = new BinaryRenderer(self::BIN_DIR.'/fake-d2-fail');

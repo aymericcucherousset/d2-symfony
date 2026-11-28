@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aymericcucherousset\D2Symfony\Tests\Unit\Core;
 
 use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
+use Aymericcucherousset\D2Symfony\Core\Format;
 use Aymericcucherousset\D2Symfony\Core\Layout;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Core\Theme;
@@ -302,6 +303,66 @@ final class RenderOptionsTest extends TestCase
 
         self::assertEquals(new RenderOptions(theme: 300, layout: 'dagre', darkTheme: 201, center: true, scale: 2.0, fontItalic: '/fonts/i.ttf'), $options);
         self::assertEquals(new RenderOptions(theme: 300, layout: 'dagre'), $options->merge(['dark_theme' => null, 'center' => null, 'scale' => null, 'font_italic' => null]));
+    }
+
+    public function testFormatDefaultsToSvgWithoutArguments(): void
+    {
+        $options = new RenderOptions();
+
+        self::assertSame(Format::Svg, $options->format);
+        self::assertSame([], $options->toArray());
+        self::assertSame([], $options->withFormat(Format::Svg)->toCliArguments());
+        self::assertSame($options->fingerprint(), $options->withFormat('svg')->fingerprint());
+    }
+
+    public function testFormatIsPassedAsStdoutFormat(): void
+    {
+        $options = new RenderOptions(theme: 200, sketch: true, format: Format::Png);
+
+        self::assertSame(['--theme=200', '--sketch', '--stdout-format=png'], $options->toCliArguments());
+        self::assertSame(['theme' => 200, 'sketch' => true, 'format' => 'png'], $options->toArray());
+        self::assertSame(['--stdout-format=pdf'], (new RenderOptions(format: 'pdf'))->toCliArguments());
+    }
+
+    public function testFormatChangesTheFingerprint(): void
+    {
+        $fingerprints = array_map(static fn (Format $format): string => (new RenderOptions(format: $format))->fingerprint(), Format::cases());
+
+        self::assertSame($fingerprints, array_unique($fingerprints));
+    }
+
+    public function testFormatCanBeMergedAndReset(): void
+    {
+        $options = (new RenderOptions(theme: 1))->merge(['format' => 'png']);
+
+        self::assertEquals(new RenderOptions(theme: 1, format: Format::Png), $options);
+        self::assertSame(Format::Pdf, $options->merge(['format' => Format::Pdf])->format);
+        self::assertSame(Format::Svg, $options->merge(['format' => null])->format);
+        self::assertSame(Format::Png, $options->withTheme(3)->format, 'Withers keep the format.');
+    }
+
+    public function testUnknownFormatIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unknown output format "jpg"; available formats are "svg", "png", "pdf".');
+
+        new RenderOptions(format: 'jpg');
+    }
+
+    public function testMergeRejectsANonStringFormat(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('The D2 option "format" must be a format name or null, int given.');
+
+        (new RenderOptions())->merge(['format' => 1]);
+    }
+
+    public function testFormatMetadata(): void
+    {
+        self::assertSame(['image/svg+xml', 'image/png', 'application/pdf'], array_map(static fn (Format $format): string => $format->mimeType(), Format::cases()));
+        self::assertSame(Format::Png, Format::fromExtension('.PNG'));
+        self::assertSame(Format::Pdf, Format::fromExtension('pdf'));
+        self::assertNull(Format::fromExtension('d2'));
     }
 
     public function testThemeEnumMatchesTheOfficialThemes(): void

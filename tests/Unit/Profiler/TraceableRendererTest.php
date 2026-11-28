@@ -8,6 +8,7 @@ use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
 use Aymericcucherousset\D2Symfony\Core\ChainRenderer;
 use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
+use Aymericcucherousset\D2Symfony\Core\Format;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Profiler\D2DataCollector;
 use Aymericcucherousset\D2Symfony\Profiler\RenderTracer;
@@ -54,6 +55,21 @@ final class TraceableRendererTest extends TestCase
         self::assertSame([['renderer' => 'binary', 'status' => 'success', 'message' => null]], $render['attempts']);
         self::assertGreaterThanOrEqual(0.0, $render['duration']);
         self::assertSame($render['duration'], $this->collector->getDuration());
+    }
+
+    public function testPngPreviewUsesItsMediaTypeAndPdfHasNoPreview(): void
+    {
+        $renderer = new TraceableRenderer(new SpyRenderer("\x89PNG"), $this->tracer);
+
+        $renderer->render(new Diagram('a', new RenderOptions(format: Format::Png)));
+        $renderer->render(new Diagram('a', new RenderOptions(format: Format::Pdf)));
+        $this->collector->lateCollect();
+
+        [$png, $pdf] = $this->collector->getRenders();
+        self::assertSame('data:image/png;base64,'.base64_encode("\x89PNG"), $png['svg_data_uri']);
+        self::assertSame(['format' => 'pdf'], $pdf['options']);
+        self::assertNull($pdf['svg_data_uri']);
+        self::assertSame(4, $pdf['svg_size']);
     }
 
     public function testCacheHitsAndMissesAreReported(): void

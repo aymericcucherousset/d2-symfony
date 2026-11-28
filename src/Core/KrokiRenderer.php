@@ -7,6 +7,7 @@ namespace Aymericcucherousset\D2Symfony\Core;
 use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RemoteUnavailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
+use Aymericcucherousset\D2Symfony\Core\Exception\UnsupportedFormatException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
@@ -18,6 +19,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * Useful where running binaries is forbidden. The source is sent as the body of
  * `POST {baseUrl}/d2/svg`; render options are sent as `Kroki-Diagram-Options-*` headers.
  * Options Kroki does not support are ignored, with a warning logged.
+ *
+ * Kroki only renders D2 diagrams to SVG: other formats throw an {@see UnsupportedFormatException},
+ * so a {@see ChainRenderer} can fall back to the local binary.
  *
  * Network errors and server errors (HTTP 5xx) throw a {@see RemoteUnavailableException},
  * so a {@see ChainRenderer} can fall back to another renderer; D2 errors throw a {@see RenderException}.
@@ -65,6 +69,10 @@ final class KrokiRenderer implements VersionAwareRenderer
 
     public function render(Diagram $diagram): string
     {
+        if (Format::Svg !== $diagram->options->format) {
+            throw new UnsupportedFormatException($diagram->options->format, 'Kroki');
+        }
+
         $url = $this->baseUrl.'/d2/svg';
         $options = [
             'headers' => [

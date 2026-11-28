@@ -10,11 +10,15 @@ use Aymericcucherousset\D2Symfony\Core\Exception\BinaryNotFoundException;
 use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
 use Aymericcucherousset\D2Symfony\Core\Exception\NoRendererAvailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
+use Aymericcucherousset\D2Symfony\Core\Format;
+use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
+use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\FailingRenderer;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\SpyRenderer;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\UnavailableRenderer;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\VersionedSpyRenderer;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpClient\MockHttpClient;
 
 final class ChainRendererTest extends TestCase
 {
@@ -27,6 +31,15 @@ final class ChainRendererTest extends TestCase
         self::assertSame('<svg data-version="v1">a -> b</svg>', $chain->render(new Diagram('a -> b')));
         self::assertSame(1, $first->renderCalls);
         self::assertSame(0, $second->renderCalls);
+    }
+
+    public function testFormatUnsupportedByKrokiFallsBackToTheNextRenderer(): void
+    {
+        $binary = new SpyRenderer("\x89PNG");
+        $chain = new ChainRenderer([new KrokiRenderer(new MockHttpClient()), $binary]);
+
+        self::assertSame("\x89PNG", $chain->render(new Diagram('a -> b', new RenderOptions(format: Format::Png))));
+        self::assertCount(1, $binary->diagrams);
     }
 
     public function testUnavailableRendererFallsBackToTheNextOne(): void

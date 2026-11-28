@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aymericcucherousset\D2Symfony\Tests\Unit\Twig;
 
 use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
+use Aymericcucherousset\D2Symfony\Core\Format;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\SpyRenderer;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
@@ -73,6 +74,43 @@ final class D2ExtensionTest extends TestCase
     public function testEmptySourceRaisesTwigRuntimeError(): void
     {
         self::assertRuntimeErrorCausedByInvalidArgument("{{ ''|d2 }}", 'must not be empty');
+    }
+
+    public function testDataUriFilterRendersPngByDefault(): void
+    {
+        $spy = new SpyRenderer("\x89PNG-bytes");
+
+        $output = self::twig($spy, ['page' => '<img src="{{ src|d2_data_uri }}">'], new RenderOptions(theme: 1))->render('page', ['src' => 'a -> b']);
+
+        self::assertSame('<img src="data:image/png;base64,'.base64_encode("\x89PNG-bytes").'">', $output);
+        self::assertEquals(new RenderOptions(theme: 1, format: Format::Png), $spy->diagrams[0]->options);
+    }
+
+    public function testDataUriFilterAcceptsOptionsAndOtherFormats(): void
+    {
+        $spy = new SpyRenderer('<svg/>');
+
+        $output = self::twig($spy, ['page' => "{{ 'a'|d2_data_uri({ format: 'svg', sketch: true }) }}|{{ 'a'|d2_data_uri({ format: 'pdf' }) }}"])->render('page');
+
+        self::assertSame('data:image/svg+xml;base64,'.base64_encode('<svg/>').'|data:application/pdf;base64,'.base64_encode('<svg/>'), $output);
+        self::assertEquals(new RenderOptions(sketch: true), $spy->diagrams[0]->options);
+        self::assertSame(Format::Pdf, $spy->diagrams[1]->options->format);
+    }
+
+    public function testDataUriFilterTreatsANullFormatAsPng(): void
+    {
+        $spy = new SpyRenderer("\x89PNG-bytes");
+
+        $output = self::twig($spy, ['page' => "{{ 'a'|d2_data_uri({ format: null }) }}"])->render('page');
+
+        self::assertStringStartsWith('data:image/png;base64,', $output);
+        self::assertSame(Format::Png, $spy->diagrams[0]->options->format);
+    }
+
+    public function testD2FilterAndTagRejectBinaryFormats(): void
+    {
+        self::assertRuntimeErrorCausedByInvalidArgument("{{ 'a'|d2({ format: 'png' }) }}", 'cannot render to PNG; use the "d2_data_uri" filter instead');
+        self::assertRuntimeErrorCausedByInvalidArgument("{% d2 with { format: 'pdf' } %}a -> b{% endd2 %}", 'cannot render to PDF');
     }
 
     private static function assertRuntimeErrorCausedByInvalidArgument(string $template, string $message): void

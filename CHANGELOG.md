@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Core: `Format` enum (`Svg`, `Png`, `Pdf`, with `mimeType()`) and the `format` render option (`RenderOptions::$format`, `withFormat()`, `format` in `merge()`), passed to d2 as `--stdout-format`. `BinaryRenderer` renders PNG and PDF; the SVG format is not part of `toArray()` and CLI arguments, so cache keys of existing diagrams are unchanged ([#24](https://github.com/aymericcucherousset/d2-symfony/issues/24)).
+- Core: `UnsupportedFormatException`, a `RendererUnavailableException` thrown by `KrokiRenderer` for formats other than SVG, so a `ChainRenderer` falls back to the next renderer.
+- Twig: `|d2_data_uri` filter returning a base64 `data:` URI, PNG by default (`format` option: `svg`, `png` or `pdf`), for HTML-to-PDF generators and emails.
+- `d2:render --format=svg|png|pdf`; without it, the format is taken from the extension of `--output`.
+- Web Profiler: PNG diagrams are previewed with their media type; PDF documents are listed without a preview.
+
+### Changed
+
+- `|d2` and `{% d2 %}` throw an `InvalidArgumentException` when the options ask for another format than SVG, instead of printing a binary document in the page.
+- `d2:render` writes the diagram to stdout even with `--quiet`, and refuses to print a PNG or PDF document to an interactive terminal.
+
 ## [0.5.0] - 2026-11-28
 
 ### Added

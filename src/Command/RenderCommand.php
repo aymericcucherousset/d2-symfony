@@ -7,6 +7,7 @@ namespace Aymericcucherousset\D2Symfony\Command;
 use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Exception\D2Exception;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
+use Aymericcucherousset\D2Symfony\Core\Format;
 use Aymericcucherousset\D2Symfony\Core\Layout;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
@@ -19,9 +20,10 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\StreamableInputInterface;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Output\StreamOutput;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
-#[AsCommand(name: 'd2:render', description: 'Render a D2 file to SVG with the configured renderer')]
+#[AsCommand(name: 'd2:render', description: 'Render a D2 file to SVG, PNG or PDF with the configured renderer')]
 final class RenderCommand extends Command
 {
     public function __construct(
@@ -35,7 +37,8 @@ final class RenderCommand extends Command
     {
         $this
             ->addArgument('input', InputArgument::REQUIRED, 'Path to the .d2 file, or "-" to read from stdin')
-            ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Write the SVG to this file instead of stdout')
+            ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Write the diagram to this file instead of stdout')
+            ->addOption('format', 'f', InputOption::VALUE_REQUIRED, 'Output format: '.implode(', ', Format::values()).' (default: the extension of --output, else svg)')
             ->addOption('theme', 't', InputOption::VALUE_REQUIRED, 'd2 theme ID (see "d2 themes")')
             ->addOption('dark-theme', null, InputOption::VALUE_REQUIRED, 'd2 theme ID used when the browser is in dark mode')
             ->addOption('layout', 'l', InputOption::VALUE_REQUIRED, 'Layout engine: '.implode(', ', Layout::values()))
@@ -50,6 +53,11 @@ final class RenderCommand extends Command
                   <info>php %command.full_name% diagram.d2 -o public/diagram.svg --theme=200 --dark-theme=201 --sketch</info>
                   <info>cat diagram.d2 | php %command.full_name% -</info>
 
+                PNG and PDF are selected with <comment>--format</comment>, or from the extension of the output file:
+
+                  <info>php %command.full_name% diagram.d2 -o diagram.png</info>
+                  <info>php %command.full_name% diagram.d2 --format=pdf > diagram.pdf</info>
+
                 Diagrams are rendered with the configured renderer (<comment>d2.renderer</comment>: binary,
                 Kroki or chain) and cache. Options not given on the command line use
                 <comment>d2.defaults</comment>.
@@ -58,7 +66,7 @@ final class RenderCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // Keep stdout for the SVG: messages go to stderr.
+        // Keep stdout for the diagram: messages go to stderr.
         $io = new SymfonyStyle($input, $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output);
 
         /** @var string $path */
@@ -67,8 +75,11 @@ final class RenderCommand extends Command
         $target = $input->getOption('output');
 
         try {
-            $diagram = new Diagram($this->readSource($input, $path), $this->options($input));
-            $svg = $this->renderer->render($diagram);
+            $diagram = new Diagram($this->readSource($input, $path), $this->options($input, $target));
+            if (null === $target && Format::Svg !== $diagram->options->format && $output instanceof StreamOutput && stream_isatty($output->getStream())) {
+                throw new \RuntimeException(\sprintf('Refusing to write a %s document to the terminal: use "--output" or redirect stdout to a file.', strtoupper($diagram->options->format->value)));
+            }
+            $document = $this->renderer->render($diagram);
         } catch (RenderException $e) {
             $io->error($e->getMessage());
             foreach ($e->getD2Errors() as $error) {
@@ -83,13 +94,14 @@ final class RenderCommand extends Command
         }
 
         if (null === $target) {
-            $output->write($svg, false, OutputInterface::OUTPUT_RAW);
+            // The document is the command result: written even with --quiet, which only silences messages.
+            $output->write($document, false, OutputInterface::OUTPUT_RAW | OutputInterface::VERBOSITY_QUIET);
 
             return Command::SUCCESS;
         }
 
-        if (false === @file_put_contents($target, $svg)) {
-            $io->error(\sprintf('Unable to write the SVG to "%s": %s', $target, error_get_last()['message'] ?? 'unknown error'));
+        if (false === @file_put_contents($target, $document)) {
+            $io->error(\sprintf('Unable to write the diagram to "%s": %s', $target, error_get_last()['message'] ?? 'unknown error'));
 
             return Command::FAILURE;
         }
@@ -122,9 +134,9 @@ final class RenderCommand extends Command
 
     /**
      * @throws D2Exception            on invalid option values
-     * @throws InvalidOptionException when a numeric option is not a number
+     * @throws InvalidOptionException when a numeric option is not a number, or the format is unknown
      */
-    private function options(InputInterface $input): RenderOptions
+    private function options(InputInterface $input, ?string $target): RenderOptions
     {
         $options = [];
 
@@ -157,6 +169,14 @@ final class RenderCommand extends Command
             if (null !== $value = $input->getOption($flag)) {
                 $options[$flag] = (bool) $value;
             }
+        }
+
+        /** @var string|null $format */
+        $format = $input->getOption('format');
+        if (null !== $format) {
+            $options['format'] = Format::tryFrom(strtolower($format)) ?? throw new InvalidOptionException(\sprintf('The "--format" option must be one of "%s"; "%s" given.', implode('", "', Format::values()), $format));
+        } elseif (null !== $target && null !== $extensionFormat = Format::fromExtension(pathinfo($target, \PATHINFO_EXTENSION))) {
+            $options['format'] = $extensionFormat;
         }
 
         return $this->defaults->merge($options);
