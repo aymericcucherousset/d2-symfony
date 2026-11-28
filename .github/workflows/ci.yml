@@ -130,3 +130,15 @@ jobs:
         run: vendor/bin/phpunit tests/Unit/Downloader tests/Integration/Downloader
         env:
           D2_DOWNLOAD_TEST: '1'
+
+  # Single required status check for the "Protect main" ruleset, so the matrix
+  # can change without touching branch protection. Add every new job to "needs".
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [coding-standards, static-analysis, architecture, tests, download]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
