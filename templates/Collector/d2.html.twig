@@ -1,0 +1,164 @@
+{% extends '@WebProfiler/Profiler/layout.html.twig' %}
+
+{% block head %}
+    {{ parent() }}
+
+    <style>
+        .d2-render .d2-render-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+        .d2-render .d2-preview { background: #fff; border: var(--border); border-radius: 6px; padding: 10px; text-align: center; overflow: auto; }
+        .d2-render .d2-preview img { max-width: 100%; max-height: 480px; }
+        .d2-render details { margin-top: 10px; }
+        .d2-render summary { cursor: pointer; font-weight: bold; }
+        .d2-render pre { margin: 8px 0 0; padding: 10px; background: var(--page-background); border: var(--border); border-radius: 6px; font-size: var(--font-size-monospace); white-space: pre-wrap; }
+        .d2-render .d2-attempts { margin: 8px 0 0; padding-left: 20px; }
+    </style>
+{% endblock %}
+
+{% block toolbar %}
+    {% if collector.renderCount > 0 %}
+        {% set status = collector.errorCount > 0 ? 'red' : '' %}
+
+        {% set icon %}
+            {{ source('@D2Symfony/Icon/d2.svg') }}
+            <span class="sf-toolbar-value">{{ collector.renderCount }}</span>
+            <span class="sf-toolbar-info-piece-additional-detail">
+                <span class="sf-toolbar-label">in</span>
+                <span class="sf-toolbar-value">{{ '%0.2f'|format(collector.duration) }}</span>
+                <span class="sf-toolbar-label">ms</span>
+            </span>
+        {% endset %}
+
+        {% set text %}
+            <div class="sf-toolbar-info-piece">
+                <b>Diagrams</b>
+                <span class="sf-toolbar-status">{{ collector.renderCount }}</span>
+            </div>
+            <div class="sf-toolbar-info-piece">
+                <b>Total time</b>
+                <span>{{ '%0.2f'|format(collector.duration) }} ms</span>
+            </div>
+            {% if collector.cacheHits + collector.cacheMisses > 0 %}
+                <div class="sf-toolbar-info-piece">
+                    <b>Cache hits</b>
+                    <span>{{ collector.cacheHits }} / {{ collector.cacheHits + collector.cacheMisses }}</span>
+                </div>
+            {% endif %}
+            {% for name, count in collector.renderers %}
+                <div class="sf-toolbar-info-piece">
+                    <b>Rendered by {{ name }}</b>
+                    <span>{{ count }}</span>
+                </div>
+            {% endfor %}
+            {% if collector.errorCount > 0 %}
+                <div class="sf-toolbar-info-piece">
+                    <b>Errors</b>
+                    <span class="sf-toolbar-status sf-toolbar-status-red">{{ collector.errorCount }}</span>
+                </div>
+            {% endif %}
+        {% endset %}
+
+        {{ include('@WebProfiler/Profiler/toolbar_item.html.twig', {link: profiler_url, status: status}) }}
+    {% endif %}
+{% endblock %}
+
+{% block menu %}
+    <span class="label {{ collector.renderCount == 0 ? 'disabled' }} {{ collector.errorCount > 0 ? 'label-status-error' }}">
+        <span class="icon" aria-hidden="true">{{ source('@D2Symfony/Icon/d2.svg') }}</span>
+        <strong>D2</strong>
+        {% if collector.errorCount > 0 %}
+            <span class="count"><span>{{ collector.errorCount }}</span></span>
+        {% endif %}
+    </span>
+{% endblock %}
+
+{% block panel %}
+    <h2>D2 diagrams</h2>
+
+    {% if collector.renderCount == 0 %}
+        <div class="empty empty-panel">
+            <p>No D2 diagram was rendered.</p>
+        </div>
+    {% else %}
+        <div class="metrics">
+            <div class="metric">
+                <span class="value">{{ collector.renderCount }}</span>
+                <span class="label">Diagrams</span>
+            </div>
+            <div class="metric">
+                <span class="value">{{ '%0.2f'|format(collector.duration) }} <span class="unit">ms</span></span>
+                <span class="label">Total time</span>
+            </div>
+            {% if collector.cacheHits + collector.cacheMisses > 0 %}
+                <div class="metric-divider"></div>
+                <div class="metric-group">
+                    <div class="metric">
+                        <span class="value">{{ collector.cacheHits }}</span>
+                        <span class="label">Cache hits</span>
+                    </div>
+                    <div class="metric">
+                        <span class="value">{{ collector.cacheMisses }}</span>
+                        <span class="label">Cache misses</span>
+                    </div>
+                </div>
+            {% endif %}
+            {% if collector.errorCount > 0 %}
+                <div class="metric-divider"></div>
+                <div class="metric">
+                    <span class="value">{{ collector.errorCount }}</span>
+                    <span class="label">Errors</span>
+                </div>
+            {% endif %}
+        </div>
+
+        <h2>Renders</h2>
+
+        {% for render in collector.renders %}
+            <div class="card d2-render">
+                <div class="d2-render-meta">
+                    <strong>#{{ loop.index }}</strong>
+                    {% if render.error %}
+                        <span class="badge status-error">error</span>
+                    {% endif %}
+                    {% if render.cache == 'hit' %}
+                        <span class="badge status-success">cache hit</span>
+                    {% elseif render.cache == 'miss' %}
+                        <span class="badge">cache miss</span>
+                    {% endif %}
+                    {% if render.renderer %}
+                        <span class="badge">{{ render.renderer }}</span>
+                    {% endif %}
+                    <span>{{ '%0.2f'|format(render.duration) }} ms</span>
+                    {% if render.svg_size > 0 %}
+                        <span class="text-muted">{{ '%0.1f'|format(render.svg_size / 1024) }} KiB</span>
+                    {% endif %}
+                    {% for option, value in render.options %}
+                        <code>{{ option }}={{ value is same as(true) ? 'true' : value }}</code>
+                    {% endfor %}
+                </div>
+
+                {% if render.error %}
+                    <div class="alert alert-error">
+                        <strong>{{ render.error.class|abbr_class }}</strong>: {{ render.error.message }}
+                    </div>
+                {% elseif render.svg_data_uri %}
+                    <div class="d2-preview">
+                        <img src="{{ render.svg_data_uri }}" alt="D2 diagram #{{ loop.index }}">
+                    </div>
+                {% endif %}
+
+                {% if render.attempts|filter(attempt => attempt.status != 'success')|length > 0 %}
+                    <ul class="d2-attempts">
+                        {% for attempt in render.attempts %}
+                            <li><strong>{{ attempt.renderer }}</strong>: {{ attempt.status }}{% if attempt.message %} ({{ attempt.message }}){% endif %}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                <details>
+                    <summary>D2 source</summary>
+                    <pre>{{ render.source }}</pre>
+                </details>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endblock %}
