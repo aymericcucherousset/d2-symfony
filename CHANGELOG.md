@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-28
+
 ### Added
 
 - Core: `KrokiRenderer` renders diagrams over HTTP with a Kroki server (`POST /d2/svg`, configurable base URL and timeout). The `theme`, `layout`, `pad` and `sketch` options are sent as `Kroki-Diagram-Options-*` headers, and unsupported options are logged as warnings through an optional PSR-3 logger. Network errors and server errors (HTTP 5xx) throw a `RemoteUnavailableException`; D2 errors throw a `RenderException`.
@@ -77,7 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `D2Bundle::getPath()` now returns the package root instead of `src/`.
 
-[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/aymericcucherousset/d2-symfony/releases/tag/v0.1.0
