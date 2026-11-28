@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aymericcucherousset\D2Symfony;
 
 use Aymericcucherousset\D2Symfony\Command\DownloadCommand;
+use Aymericcucherousset\D2Symfony\Command\RenderCommand;
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
 use Aymericcucherousset\D2Symfony\Core\ChainRenderer;
@@ -262,6 +263,10 @@ final class D2SymfonyBundle extends AbstractBundle
         $defaults = $config['defaults'];
         $services->set('d2.default_options', RenderOptions::class)
             ->args([$defaults['theme'], $defaults['layout'], $defaults['pad'], $defaults['sketch']]);
+
+        $services->set('d2.command.render', RenderCommand::class)
+            ->args([service('d2.renderer'), service('d2.default_options')])
+            ->tag('console.command', ['command' => 'd2:render']);
 
         if (ContainerBuilder::willBeAvailable('twig/twig', Environment::class, ['aymericcucherousset/d2-symfony'])) {
             $services->set('d2.twig.extension', D2Extension::class)

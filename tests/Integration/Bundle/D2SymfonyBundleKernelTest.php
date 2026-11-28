@@ -28,6 +28,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\TwigBundle\TwigBundle;
 use Symfony\Bundle\WebProfilerBundle\WebProfilerBundle;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\Filesystem\Filesystem;
@@ -411,7 +413,39 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         $application = new Application($kernel);
 
         self::assertTrue($application->has('d2:download'));
+        self::assertTrue($application->has('d2:render'));
         self::assertInstanceOf(BinaryDownloader::class, self::getContainer()->get('d2.binary_downloader'));
+    }
+
+    public function testRenderCommandUsesTheConfiguredRendererAndDefaults(): void
+    {
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('The fake d2 binary is a POSIX shell script.');
+        }
+
+        $kernel = self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', [
+                    'binary_path' => self::FAKE_D2,
+                    'cache' => false,
+                    'defaults' => ['theme' => 200],
+                ]);
+            });
+        }]);
+
+        $input = sys_get_temp_dir().'/d2-render-'.bin2hex(random_bytes(6)).'.d2';
+        file_put_contents($input, 'a -> b');
+
+        try {
+            $tester = new CommandTester((new Application($kernel))->find('d2:render'));
+
+            self::assertSame(Command::SUCCESS, $tester->execute(['input' => $input, '--layout' => 'elk', '--sketch' => true]));
+        } finally {
+            unlink($input);
+        }
+
+        self::assertStringContainsString("arg:--theme=200\narg:--layout=elk\narg:--sketch\n", $tester->getDisplay());
+        self::assertStringContainsString('stdin:a -> b', $tester->getDisplay());
     }
 
     public function testDownloadedBinaryIsUsedWhenNoPathIsConfigured(): void

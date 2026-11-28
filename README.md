@@ -172,6 +172,18 @@ final class DiagramController
 }
 ```
 
+### Command line
+
+`bin/console d2:render` renders a `.d2` file with the configured renderer (binary, Kroki or chain) and cache. The SVG goes to stdout unless `-o` is given:
+
+```bash
+bin/console d2:render diagram.d2 > diagram.svg
+bin/console d2:render diagram.d2 -o public/diagram.svg --theme=200 --layout=elk --sketch
+cat diagram.d2 | bin/console d2:render -
+```
+
+Options that aren't given use `d2.defaults`; `--no-sketch` turns off a sketch default. D2 syntax errors are reported as `file:line:column: message`.
+
 ### Choosing a renderer
 
 | `renderer` | Renders with | Use it when |
