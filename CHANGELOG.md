@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `bin/console d2:render <input> [-o output.svg]` renders a D2 file (or stdin with `-`) to SVG with the configured renderer and cache; the SVG is written to stdout by default. `--theme`, `--layout` and `--sketch`/`--no-sketch` override `d2.defaults`, and D2 syntax errors are reported as `file:line:column: message`.
+
 ## [0.4.0] - 2026-11-28
 
 ### Added
