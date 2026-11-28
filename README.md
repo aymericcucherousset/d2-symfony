@@ -19,6 +19,7 @@ Write [D2](https://d2lang.com) diagrams as text in your Twig templates and get i
 - PHP 8.2 or later
 - Symfony 6.4, 7.4 or 8.x
 - Twig 3.21 or later (`symfony/twig-bundle`), for the `|d2` filter and `{% d2 %}` tag
+- For [Markdown code blocks](#markdown): `league/commonmark` 2.6 or later
 - The [`d2` binary](https://d2lang.com/tour/install), downloaded for you by `bin/console d2:download` (Linux, macOS and Windows on amd64 or arm64)
 - For [PNG and PDF output](#png-and-pdf): the local binary, d2 v0.9.0 or later recommended (older versions need Playwright, see below)
 
@@ -170,6 +171,47 @@ d2:
 ```
 
 The file is read on every render and the cache key covers its content, so an edited file is rendered again on the next request, without clearing any cache. D2 errors name the file: `D2 syntax error at line 3, column 1: … (in D2 file "diagrams/architecture.d2")`.
+
+### Markdown
+
+With `league/commonmark` installed, ```` ```d2 ```` fenced code blocks in Markdown are rendered to inline SVG, so documentation pages and blog posts can hold diagrams:
+
+````markdown
+# Checkout
+
+```d2
+shop -> payment: checkout
+payment -> bank: authorize
+```
+````
+
+To use it with the `|markdown_to_html` Twig filter, install the Twig Markdown extension:
+
+```console
+composer require league/commonmark twig/extra-bundle twig/markdown-extra
+```
+
+```twig
+{{ article.body|markdown_to_html }}
+```
+
+The bundle registers the `d2.commonmark.extension` service and tags it `twig.markdown.league_extension`, so twig/extra-bundle adds it to its CommonMark converter: there is nothing to configure. Diagrams use the renderer, cache and `d2.defaults` of the bundle. Other code blocks (```` ```php ````, blocks without a language…) are rendered as usual, and so are empty `d2` blocks.
+
+For your own converter, add the extension to its environment; it can be autowired as `Aymericcucherousset\D2Symfony\CommonMark\D2CommonMarkExtension`:
+
+```php
+use Aymericcucherousset\D2Symfony\CommonMark\D2CommonMarkExtension;
+use League\CommonMark\GithubFlavoredMarkdownConverter;
+
+$converter = new GithubFlavoredMarkdownConverter();
+$converter->getEnvironment()->addExtension($d2CommonMarkExtension);
+
+echo $converter->convert($markdown);
+```
+
+Without the bundle, create it from any renderer: `new D2CommonMarkExtension(new BinaryRenderer(), new RenderOptions(theme: 200))`.
+
+A D2 error stops the conversion with a `RenderException` that gives the Markdown line: `D2 syntax error at line 2, column 6: maps must be terminated with } (at line 7 of the Markdown document)`.
 
 ### PHP
 

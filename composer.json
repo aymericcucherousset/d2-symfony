@@ -41,6 +41,7 @@
     "require-dev": {
         "deptrac/deptrac": "^4.7",
         "friendsofphp/php-cs-fixer": "^3.64",
+        "league/commonmark": "^2.6",
         "nyholm/symfony-bundle-test": "^3.1",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.1",
@@ -54,12 +55,16 @@
         "symfony/twig-bundle": "^6.4 || ^7.4 || ^8.0",
         "symfony/validator": "^6.4 || ^7.4 || ^8.0",
         "symfony/web-profiler-bundle": "^6.4 || ^7.4 || ^8.0",
+        "twig/extra-bundle": "^3.21",
+        "twig/markdown-extra": "^3.21",
         "twig/twig": "^3.21"
     },
     "conflict": {
+        "league/commonmark": "<2.6",
         "twig/twig": "<3.21"
     },
     "suggest": {
+        "league/commonmark": "To render ```d2 code blocks in Markdown (with twig/extra-bundle and twig/markdown-extra for the |markdown_to_html filter)",
         "symfony/twig-bundle": "To render diagrams in templates with the |d2 filter",
         "symfony/web-profiler-bundle": "To inspect rendered diagrams in the D2 profiler panel"
     },

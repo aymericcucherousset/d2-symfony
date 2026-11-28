@@ -6,6 +6,7 @@ namespace Aymericcucherousset\D2Symfony;
 
 use Aymericcucherousset\D2Symfony\Command\DownloadCommand;
 use Aymericcucherousset\D2Symfony\Command\RenderCommand;
+use Aymericcucherousset\D2Symfony\CommonMark\D2CommonMarkExtension;
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
 use Aymericcucherousset\D2Symfony\Core\ChainRenderer;
@@ -22,6 +23,7 @@ use Aymericcucherousset\D2Symfony\Profiler\TraceableRenderer;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
 use Aymericcucherousset\D2Symfony\Twig\D2FileLoader;
 use Aymericcucherousset\D2Symfony\Twig\D2Runtime;
+use League\CommonMark\Extension\ExtensionInterface as CommonMarkExtension;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -325,6 +327,14 @@ final class D2SymfonyBundle extends AbstractBundle
             $services->set('d2.twig.runtime', D2Runtime::class)
                 ->args([service('d2.renderer'), service('d2.default_options'), service('d2.twig.file_loader')])
                 ->tag('twig.runtime');
+        }
+
+        if (ContainerBuilder::willBeAvailable('league/commonmark', CommonMarkExtension::class, ['aymericcucherousset/d2-symfony'])) {
+            // The tag adds it to the converter of the |markdown_to_html filter (twig/extra-bundle).
+            $services->set('d2.commonmark.extension', D2CommonMarkExtension::class)
+                ->args([service('d2.renderer'), service('d2.default_options')])
+                ->tag('twig.markdown.league_extension');
+            $services->alias(D2CommonMarkExtension::class, 'd2.commonmark.extension');
         }
     }
 

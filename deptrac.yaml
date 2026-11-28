@@ -11,7 +11,7 @@ deptrac:
         - type: directory
           value: src/Core/.*
 
-    # Symfony integration: bundle class, DI, console commands, downloader, Twig.
+    # Symfony integration: bundle class, DI, console commands, downloader, Twig, CommonMark.
     - name: Bundle
       collectors:
         - type: bool
