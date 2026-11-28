@@ -15,6 +15,9 @@ use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\D2SymfonyBundle;
 use Aymericcucherousset\D2Symfony\Downloader\BinaryDownloader;
+use Aymericcucherousset\D2Symfony\Profiler\D2DataCollector;
+use Aymericcucherousset\D2Symfony\Profiler\TraceableBackendRenderer;
+use Aymericcucherousset\D2Symfony\Profiler\TraceableRenderer;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\FakeKrokiClient;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\RendererConsumer;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
@@ -23,6 +26,7 @@ use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Bundle\TwigBundle\TwigBundle;
+use Symfony\Bundle\WebProfilerBundle\WebProfilerBundle;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -458,6 +462,106 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         $this->expectExceptionMessage('Run "bin/console d2:download" to install it, or set "d2.binary_path".');
 
         $renderer->render(new Diagram('a'));
+    }
+
+    public function testProfilerServicesAreNotRegisteredWhenTheProfilerIsDisabled(): void
+    {
+        self::bootKernel(['debug' => true]);
+        $container = self::getContainer();
+
+        self::assertFalse($container->has('d2.profiler.data_collector'));
+        self::assertFalse($container->has('d2.profiler.tracer'));
+        self::assertInstanceOf(CachedRenderer::class, $container->get(Renderer::class));
+        self::assertInstanceOf(BinaryRenderer::class, $container->get('d2.renderer.binary'));
+    }
+
+    public function testProfilerServicesAreNotRegisteredWithoutDebug(): void
+    {
+        self::bootKernel(['debug' => false, 'config' => self::enableProfiler(...)]);
+        $container = self::getContainer();
+
+        self::assertFalse($container->has('d2.profiler.data_collector'));
+        self::assertInstanceOf(CachedRenderer::class, $container->get(Renderer::class));
+    }
+
+    public function testRendersAreCollectedForTheProfiler(): void
+    {
+        self::bootKernel(['debug' => true, 'config' => static function (TestKernel $kernel): void {
+            self::enableProfiler($kernel);
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', [
+                    'renderer' => 'chain',
+                    'binary_path' => '/nonexistent/d2',
+                    'kroki' => ['http_client' => 'test.kroki_client'],
+                ]);
+            });
+        }]);
+        $container = self::getContainer();
+
+        $pool = $container->get('cache.d2');
+        self::assertInstanceOf(CacheItemPoolInterface::class, $pool);
+        $pool->clear();
+
+        $renderer = $container->get(Renderer::class);
+        self::assertInstanceOf(TraceableRenderer::class, $renderer);
+        self::assertSame($renderer, $container->get('d2.renderer'));
+        self::assertInstanceOf(TraceableBackendRenderer::class, $container->get('d2.renderer.binary'));
+        self::assertInstanceOf(TraceableBackendRenderer::class, $container->get('d2.renderer.kroki'));
+        self::assertSame('kroki:https://kroki.io', $renderer->getVersion());
+
+        $renderer->render(new Diagram('a -> b'));
+        $renderer->render(new Diagram('a -> b'));
+
+        $collector = $container->get('d2.profiler.data_collector');
+        self::assertInstanceOf(D2DataCollector::class, $collector);
+        $collector->lateCollect();
+
+        self::assertSame(2, $collector->getRenderCount());
+        self::assertSame(1, $collector->getCacheMisses());
+        self::assertSame(1, $collector->getCacheHits());
+        self::assertSame(['kroki' => 1], $collector->getRenderers());
+        self::assertSame(['unavailable', 'success'], array_column($collector->getRenders()[0]['attempts'], 'status'));
+    }
+
+    public function testProfilerPanelRendersCollectedDiagrams(): void
+    {
+        self::bootKernel(['debug' => true, 'config' => static function (TestKernel $kernel): void {
+            self::enableProfiler($kernel);
+            $kernel->addTestBundle(WebProfilerBundle::class);
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', ['binary_path' => self::FAKE_D2, 'cache' => false]);
+            });
+        }]);
+        $container = self::getContainer();
+
+        $renderer = $container->get(Renderer::class);
+        self::assertInstanceOf(Renderer::class, $renderer);
+        $renderer->render(new Diagram("x -> y\n# <script>", new RenderOptions(theme: 3)));
+
+        $collector = $container->get('d2.profiler.data_collector');
+        self::assertInstanceOf(D2DataCollector::class, $collector);
+        $collector->lateCollect();
+
+        $twig = $container->get('twig');
+        self::assertInstanceOf(Environment::class, $twig);
+        $template = $twig->load('@D2Symfony/Collector/d2.html.twig');
+
+        $panel = $template->renderBlock('panel', ['collector' => $collector]);
+        self::assertStringContainsString('<img src="data:image/svg+xml;base64,', $panel);
+        self::assertStringContainsString('<summary>D2 source</summary>', $panel);
+        self::assertStringContainsString("x -&gt; y\n# &lt;script&gt;", $panel);
+        self::assertStringContainsString('<code>theme=3</code>', $panel);
+        self::assertStringContainsString('<span class="badge">binary</span>', $panel);
+
+        $menu = $template->renderBlock('menu', ['collector' => $collector]);
+        self::assertStringContainsString('<strong>D2</strong>', $menu);
+    }
+
+    private static function enableProfiler(TestKernel $kernel): void
+    {
+        $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+            $container->loadFromExtension('framework', ['profiler' => ['enabled' => true, 'collect' => false]]);
+        });
     }
 
     /**

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Bundle: Web Profiler panel (`kernel.debug` and profiler enabled only): previews of the rendered SVG with their collapsible D2 source, render count and duration, cache hits and misses, renderer used and chain fallbacks, plus a toolbar item and Stopwatch events in the `d2` category ([#21](https://github.com/aymericcucherousset/d2-symfony/issues/21)).
+
 ## [0.4.0] - 2026-11-28
 
 ### Added
