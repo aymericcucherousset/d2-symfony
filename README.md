@@ -107,6 +107,8 @@ d2:
     twig:
         # Render static {% d2 %} tags when templates are compiled; ~ = when kernel.debug is false.
         prerender_static: ~
+        # Directory that d2_file() paths are relative to; files outside of it are rejected.
+        root_dir: '%kernel.project_dir%'
 ```
 
 Invalid values (unknown theme ID or layout engine, negative padding, a scale of 0, unknown keys…) are rejected when the container is built. In PHP configuration files, `theme`, `dark_theme` and `layout` also accept the `Theme` and `Layout` enums.
@@ -150,6 +152,23 @@ app -> {{ service }}
 ```
 
 Twig variables and tags work inside the body; their output is **not** HTML-escaped, since it is D2 source (d2 escapes labels in the generated SVG).
+
+Keep larger diagrams in `.d2` files — with editor syntax highlighting, and usable by the `d2` CLI — and render them with the `d2_file()` function, which takes the same options:
+
+```twig
+{{ d2_file('diagrams/architecture.d2') }}
+{{ d2_file('diagrams/' ~ name ~ '.d2', { theme: 200 }) }}
+```
+
+Paths are relative to `d2.twig.root_dir` (the project directory by default). For safety, only files with the `.d2` extension inside that directory can be rendered: absolute paths, `../` segments and symbolic links leading outside of it are rejected. To restrict templates to a dedicated folder:
+
+```yaml
+d2:
+    twig:
+        root_dir: '%kernel.project_dir%/diagrams' # then {{ d2_file('architecture.d2') }}
+```
+
+The file is read on every render and the cache key covers its content, so an edited file is rendered again on the next request, without clearing any cache. D2 errors name the file: `D2 syntax error at line 3, column 1: … (in D2 file "diagrams/architecture.d2")`.
 
 ### PHP
 

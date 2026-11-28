@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Twig: `{{ d2_file('diagrams/architecture.d2', { theme: 200 }) }}` renders a `.d2` file with the same options as `|d2`. Paths are relative to the new `d2.twig.root_dir` option (default `%kernel.project_dir%`); only `.d2` files inside it are accepted, so absolute paths, `../` and symbolic links leading outside of it are rejected. The file is read on each render and cached by content, so edits are picked up without clearing the cache ([#25](https://github.com/aymericcucherousset/d2-symfony/issues/25)).
+
 ## [0.5.0] - 2026-11-28
 
 ### Added

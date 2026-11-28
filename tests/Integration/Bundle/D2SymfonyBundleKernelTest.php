@@ -21,6 +21,7 @@ use Aymericcucherousset\D2Symfony\Profiler\TraceableRenderer;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\FakeKrokiClient;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\Bundle\RendererConsumer;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
+use Aymericcucherousset\D2Symfony\Twig\D2FileLoader;
 use Nyholm\BundleTest\TestKernel;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -358,6 +359,43 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         self::assertStringStartsWith('<main><svg>', $output);
         self::assertStringContainsString("arg:--layout=elk\n", $output);
         self::assertStringContainsString("stdin:user -> app\n", $output);
+    }
+
+    public function testTwigFileFunctionRendersFileFromConfiguredRootDirectory(): void
+    {
+        if ('\\' === \DIRECTORY_SEPARATOR) {
+            self::markTestSkipped('The fake d2 binary is a POSIX shell script.');
+        }
+
+        self::bootKernel(['config' => static function (TestKernel $kernel): void {
+            $kernel->addTestConfig(static function (ContainerBuilder $container): void {
+                $container->loadFromExtension('d2', [
+                    'binary_path' => self::FAKE_D2,
+                    'cache' => false,
+                    'twig' => ['root_dir' => __DIR__.'/../../Fixtures/diagrams'],
+                ]);
+            });
+        }]);
+
+        $twig = self::getContainer()->get('twig');
+        self::assertInstanceOf(Environment::class, $twig);
+
+        $output = $twig->createTemplate("<main>{{ d2_file('nested/flow.d2', { layout: 'elk' }) }}</main>")->render();
+
+        self::assertStringStartsWith('<main><svg>', $output);
+        self::assertStringContainsString("arg:--layout=elk\n", $output);
+        self::assertStringContainsString("stdin:a -> b\n", $output);
+    }
+
+    public function testTwigFileRootDirectoryDefaultsToProjectDirectory(): void
+    {
+        self::bootKernel();
+
+        $loader = self::getContainer()->get('d2.twig.file_loader');
+        self::assertInstanceOf(D2FileLoader::class, $loader);
+        $projectDir = self::getContainer()->getParameter('kernel.project_dir');
+        self::assertIsString($projectDir);
+        self::assertSame(rtrim($projectDir, '/'), $loader->getRootDir());
     }
 
     public function testStaticDiagramsNeverCallTheBinaryAfterWarmupInProduction(): void

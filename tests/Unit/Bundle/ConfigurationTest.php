@@ -29,7 +29,7 @@ final class ConfigurationTest extends TestCase
             'timeout' => 60.0,
             'defaults' => ['theme' => null, 'dark_theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false, 'center' => false, 'scale' => null, 'font_regular' => null, 'font_italic' => null, 'font_bold' => null, 'font_semibold' => null],
             'cache' => ['enabled' => true, 'pool' => 'cache.d2'],
-            'twig' => ['prerender_static' => null],
+            'twig' => ['prerender_static' => null, 'root_dir' => '%kernel.project_dir%'],
         ], self::process([]));
     }
 
@@ -57,7 +57,7 @@ final class ConfigurationTest extends TestCase
                 'font_semibold' => '/fonts/semibold.ttf',
             ],
             'cache' => ['pool' => 'cache.redis', 'enabled' => true],
-            'twig' => ['prerender_static' => false],
+            'twig' => ['prerender_static' => false, 'root_dir' => '/srv/diagrams'],
         ], self::process([
             'renderer' => 'chain',
             'chain' => ['kroki', 'binary'],
@@ -80,14 +80,14 @@ final class ConfigurationTest extends TestCase
                 'font_semibold' => '/fonts/semibold.ttf',
             ],
             'cache' => ['pool' => 'cache.redis'],
-            'twig' => ['prerender_static' => false],
+            'twig' => ['prerender_static' => false, 'root_dir' => '/srv/diagrams'],
         ]));
     }
 
     public function testPrerenderStaticAcceptsBooleansAndNull(): void
     {
-        self::assertSame(['prerender_static' => true], self::process(['twig' => ['prerender_static' => true]])['twig']);
-        self::assertSame(['prerender_static' => null], self::process(['twig' => ['prerender_static' => null]])['twig']);
+        self::assertSame(['prerender_static' => true, 'root_dir' => '%kernel.project_dir%'], self::process(['twig' => ['prerender_static' => true]])['twig']);
+        self::assertSame(['prerender_static' => null, 'root_dir' => '%kernel.project_dir%'], self::process(['twig' => ['prerender_static' => null]])['twig']);
     }
 
     public function testCacheCanBeDisabled(): void
@@ -148,6 +148,8 @@ final class ConfigurationTest extends TestCase
         yield 'empty cache pool' => [['cache' => ['pool' => '']]];
         yield 'non-string cache pool' => [['cache' => ['pool' => 42]]];
         yield 'string prerender_static' => [['twig' => ['prerender_static' => 'yes']]];
+        yield 'empty Twig root_dir' => [['twig' => ['root_dir' => '']]];
+        yield 'non-string Twig root_dir' => [['twig' => ['root_dir' => ['diagrams']]]];
         yield 'unknown option' => [['engine' => 'kroki']];
         yield 'unknown renderer' => [['renderer' => 'wasm']];
         yield 'empty chain' => [['chain' => []]];

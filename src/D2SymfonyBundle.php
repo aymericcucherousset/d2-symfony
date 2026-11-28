@@ -20,6 +20,7 @@ use Aymericcucherousset\D2Symfony\Profiler\RenderTracer;
 use Aymericcucherousset\D2Symfony\Profiler\TraceableBackendRenderer;
 use Aymericcucherousset\D2Symfony\Profiler\TraceableRenderer;
 use Aymericcucherousset\D2Symfony\Twig\D2Extension;
+use Aymericcucherousset\D2Symfony\Twig\D2FileLoader;
 use Aymericcucherousset\D2Symfony\Twig\D2Runtime;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
@@ -56,7 +57,7 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
  *         font_semibold: string|null,
  *     },
  *     cache: array{enabled: bool, pool: string},
- *     twig: array{prerender_static: bool|null},
+ *     twig: array{prerender_static: bool|null, root_dir: string},
  * }
  */
 final class D2SymfonyBundle extends AbstractBundle
@@ -192,6 +193,15 @@ final class D2SymfonyBundle extends AbstractBundle
                                 ->thenInvalid('The prerender_static option must be a boolean or null, %s given.')
                             ->end()
                         ->end()
+                        ->scalarNode('root_dir')
+                            ->info('Directory that d2_file() paths are relative to; files outside of it cannot be rendered.')
+                            ->defaultValue('%kernel.project_dir%')
+                            ->cannotBeEmpty()
+                            ->validate()
+                                ->ifTrue(static fn (mixed $value): bool => !\is_string($value))
+                                ->thenInvalid('The root_dir option must be a directory path, %s given.')
+                            ->end()
+                        ->end()
                     ->end()
                 ->end()
             ->end()
@@ -309,8 +319,11 @@ final class D2SymfonyBundle extends AbstractBundle
                 ->args([$config['twig']['prerender_static'] ?? !$builder->getParameter('kernel.debug')])
                 ->tag('twig.extension');
 
+            $services->set('d2.twig.file_loader', D2FileLoader::class)
+                ->args([$config['twig']['root_dir']]);
+
             $services->set('d2.twig.runtime', D2Runtime::class)
-                ->args([service('d2.renderer'), service('d2.default_options')])
+                ->args([service('d2.renderer'), service('d2.default_options'), service('d2.twig.file_loader')])
                 ->tag('twig.runtime');
         }
     }

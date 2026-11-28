@@ -7,10 +7,12 @@ namespace Aymericcucherousset\D2Symfony\Twig;
 use Aymericcucherousset\D2Symfony\Twig\NodeVisitor\PrerenderStaticDiagramsNodeVisitor;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
+use Twig\TwigFunction;
 
 /**
  * Provides the `|d2` filter (`{{ source|d2({ theme: 200, sketch: true }) }}`)
- * and the `{% d2 with { theme: 200 } %}…{% endd2 %}` tag.
+ * the `{% d2 with { theme: 200 } %}…{% endd2 %}` tag and the
+ * `{{ d2_file('diagrams/architecture.d2', { theme: 200 }) }}` function.
  *
  * Rendering happens in the lazily loaded {@see D2Runtime}.
  */
@@ -27,6 +29,13 @@ final class D2Extension extends AbstractExtension
     {
         return [
             new TwigFilter('d2', [D2Runtime::class, 'render'], ['is_safe' => ['html']]),
+        ];
+    }
+
+    public function getFunctions(): array
+    {
+        return [
+            new TwigFunction('d2_file', [D2Runtime::class, 'renderFile'], ['is_safe' => ['html']]),
         ];
     }
 
