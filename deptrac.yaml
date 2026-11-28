@@ -1,0 +1,58 @@
+# Keeps src/Core free of Symfony bundle code so it can later be extracted
+# into a standalone library. Run with: vendor/bin/deptrac
+deptrac:
+  paths:
+    - ./src
+
+  layers:
+    # Framework-agnostic rendering library (future standalone package).
+    - name: Core
+      collectors:
+        - type: directory
+          value: src/Core/.*
+
+    # Symfony integration: bundle class, DI, console commands, downloader, Twig.
+    - name: Bundle
+      collectors:
+        - type: bool
+          must:
+            - type: directory
+              value: src/.*
+          must_not:
+            - type: directory
+              value: src/Core/.*
+
+    # The only third-party packages Core may use.
+    - name: CoreDependencies
+      collectors:
+        - type: classNameRegex
+          value: '#^Symfony\\Component\\Process\\#'
+        - type: classNameRegex
+          value: '#^Symfony\\Contracts\\HttpClient\\#'
+        - type: classNameRegex
+          value: '#^Psr\\Cache\\#'
+        - type: classNameRegex
+          value: '#^Psr\\Log\\#'
+
+    # Any other third-party code (Symfony components, Twig, ...).
+    - name: Vendor
+      collectors:
+        - type: bool
+          must:
+            - type: classNameRegex
+              value: '#.*#'
+          must_not:
+            - type: classNameRegex
+              value: '#^Aymericcucherousset\\D2Symfony\\#'
+            - type: layer
+              value: CoreDependencies
+            - type: php_internal
+              value: '.*'
+
+  ruleset:
+    Core:
+      - CoreDependencies
+    Bundle:
+      - Core
+      - CoreDependencies
+      - Vendor

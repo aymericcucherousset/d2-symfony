@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Deptrac (`deptrac.yaml`, `composer deptrac`, dedicated CI job) enforces that `src/Core` depends only on `symfony/process`, `symfony/http-client-contracts`, `psr/cache` and `psr/log`, and never on the bundle code.
 - `psr/log` and `symfony/http-client-contracts` are now required.
 
 ## [0.3.0] - 2026-11-27

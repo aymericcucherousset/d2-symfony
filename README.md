@@ -272,9 +272,11 @@ D2 syntax error at line 2, column 4: maps must be terminated with } in "page.htm
 
 ```bash
 composer install
-composer ci        # PHP-CS-Fixer + PHPStan + PHPUnit
+composer ci        # PHP-CS-Fixer + PHPStan + Deptrac + PHPUnit
 composer cs-fix    # apply coding standards
 ```
+
+[Deptrac](deptrac.yaml) keeps `src/Core` isolated so it can become a standalone library: Core may only depend on `symfony/process`, `symfony/http-client-contracts`, `psr/cache` and `psr/log`, and never on the bundle code (`composer deptrac`).
 
 Integration tests need the [`d2` binary](https://d2lang.com/tour/install) on your `PATH`; they are skipped otherwise (set `D2_REQUIRED=1` to make them fail instead).
 
