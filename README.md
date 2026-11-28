@@ -8,7 +8,7 @@
 Write [D2](https://d2lang.com) diagrams as text in your Twig templates and get inline SVG, rendered by Symfony.
 
 > [!NOTE]
-> Early development (0.4): the API may change between minor versions. See the [roadmap](#roadmap).
+> Early development (0.5): the API may change between minor versions. See the [roadmap](#roadmap).
 
 ![How a diagram is rendered: a Twig template uses the |d2 filter, which sends a Diagram to the BinaryRenderer; the d2 binary reads it on stdin and writes the SVG on stdout.](docs/images/example.svg)
 
