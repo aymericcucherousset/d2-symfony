@@ -9,8 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Core: `Layout` enum (`Dagre`, `Elk`, `Tala`) and `Theme` enum covering every official d2 theme (`isDark()`); `RenderOptions` accepts them as well as raw IDs and names ([#23](https://github.com/aymericcucherousset/d2-symfony/issues/23)).
+- Core: `RenderOptions` supports `darkTheme` (`--dark-theme`), `center`, `scale` and the `fontRegular`, `fontItalic`, `fontBold` and `fontSemibold` .ttf files, with `withDarkTheme()`, `withCenter()`, `withScale()` and `withFonts()`; option names are `dark_theme`, `center`, `scale` and `font_*` in Twig and `merge()`. Kroki receives `dark_theme` and `scale`.
+- Bundle: `d2.defaults.dark_theme`, `center`, `scale`, `font_regular`, `font_italic`, `font_bold` and `font_semibold`; theme IDs and layout engines are validated when the container is built, and PHP configuration accepts the enums.
+- `d2:render`: `--dark-theme`, `--pad`, `--scale` and `--center`/`--no-center`.
 - Bundle: Web Profiler panel (`kernel.debug` and profiler enabled only): previews of the rendered SVG with their collapsible D2 source, render count and duration, cache hits and misses, renderer used and chain fallbacks, plus a toolbar item and Stopwatch events in the `d2` category ([#21](https://github.com/aymericcucherousset/d2-symfony/issues/21)).
 - `bin/console d2:render <input> [-o output.svg]` renders a D2 file (or stdin with `-`) to SVG with the configured renderer and cache; the SVG is written to stdout by default. `--theme`, `--layout` and `--sketch`/`--no-sketch` override `d2.defaults`, and D2 syntax errors are reported as `file:line:column: message` ([#22](https://github.com/aymericcucherousset/d2-symfony/issues/22)).
+
+### Changed
+
+- `RenderOptions::$theme`, `$darkTheme` and `$layout` are now `Theme` and `Layout` enums, and only official theme IDs and the `dagre`, `elk` and `tala` layout engines are accepted (any lowercase name was accepted before). `toArray()` returns their IDs and names, so cache keys of existing diagrams are unchanged.
 
 ## [0.4.0] - 2026-11-28
 

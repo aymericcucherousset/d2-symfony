@@ -23,7 +23,7 @@ final readonly class D2Runtime implements RuntimeExtensionInterface
     /**
      * Renders D2 source to inline SVG markup.
      *
-     * @param array<array-key, mixed> $options overrides of the default options ("theme", "layout", "pad", "sketch")
+     * @param array<array-key, mixed> $options overrides of the default options, see {@see RenderOptions}
      *
      * @throws D2Exception
      */

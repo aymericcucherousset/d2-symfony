@@ -10,6 +10,7 @@ use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\CachedRenderer;
 use Aymericcucherousset\D2Symfony\Core\ChainRenderer;
 use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
+use Aymericcucherousset\D2Symfony\Core\Layout;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Downloader\BinaryDownloader;
@@ -41,7 +42,19 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
  *     binary_version: string,
  *     install_dir: string,
  *     timeout: int|float|null,
- *     defaults: array{theme: int|null, layout: string|null, pad: int|null, sketch: bool},
+ *     defaults: array{
+ *         theme: int|null,
+ *         dark_theme: int|null,
+ *         layout: string|null,
+ *         pad: int|null,
+ *         sketch: bool,
+ *         center: bool,
+ *         scale: float|null,
+ *         font_regular: string|null,
+ *         font_italic: string|null,
+ *         font_bold: string|null,
+ *         font_semibold: string|null,
+ *     },
  *     cache: array{enabled: bool, pool: string},
  *     twig: array{prerender_static: bool|null},
  * }
@@ -125,13 +138,24 @@ final class D2SymfonyBundle extends AbstractBundle
                     ->addDefaultsIfNotSet()
                     ->beforeNormalization()
                         ->ifArray()
-                        ->then(static fn (array $options): array => array_filter($options, static fn (mixed $value): bool => null !== $value))
+                        // Theme and Layout enums are accepted in PHP configuration files.
+                        ->then(static fn (array $options): array => array_map(
+                            static fn (mixed $value): mixed => $value instanceof \BackedEnum ? $value->value : $value,
+                            array_filter($options, static fn (mixed $value): bool => null !== $value),
+                        ))
                     ->end()
                     ->children()
-                        ->integerNode('theme')->info('d2 theme ID.')->defaultNull()->min(0)->end()
-                        ->scalarNode('layout')->info('Layout engine, e.g. "dagre" or "elk".')->defaultNull()->end()
+                        ->integerNode('theme')->info('d2 theme ID, e.g. 200 (Dark Mauve); see the Theme enum or "d2 themes".')->defaultNull()->min(0)->end()
+                        ->integerNode('dark_theme')->info('d2 theme ID used when the viewer\'s browser is in dark mode; null uses "theme" in both modes.')->defaultNull()->min(0)->end()
+                        ->enumNode('layout')->info('Layout engine ("tala" requires the TALA plugin).')->values([...Layout::values(), null])->defaultNull()->end()
                         ->integerNode('pad')->info('Padding around the diagram, in pixels.')->defaultNull()->min(0)->end()
                         ->booleanNode('sketch')->info('Render with a hand-drawn look.')->defaultFalse()->end()
+                        ->booleanNode('center')->info('Center the SVG in its viewbox (local binary only).')->defaultFalse()->end()
+                        ->floatNode('scale')->info('Scale factor, e.g. 0.5 halves the size; null fits SVG to the screen.')->defaultNull()->end()
+                        ->scalarNode('font_regular')->info('Path to the .ttf file used for regular text (local binary only).')->defaultNull()->end()
+                        ->scalarNode('font_italic')->info('Path to the .ttf file used for italic text (local binary only).')->defaultNull()->end()
+                        ->scalarNode('font_bold')->info('Path to the .ttf file used for bold text (local binary only).')->defaultNull()->end()
+                        ->scalarNode('font_semibold')->info('Path to the .ttf file used for semibold text (local binary only).')->defaultNull()->end()
                     ->end()
                     ->validate()
                         ->always(static function (mixed $options): mixed {
@@ -262,7 +286,19 @@ final class D2SymfonyBundle extends AbstractBundle
 
         $defaults = $config['defaults'];
         $services->set('d2.default_options', RenderOptions::class)
-            ->args([$defaults['theme'], $defaults['layout'], $defaults['pad'], $defaults['sketch']]);
+            ->args([
+                '$theme' => $defaults['theme'],
+                '$layout' => $defaults['layout'],
+                '$pad' => $defaults['pad'],
+                '$sketch' => $defaults['sketch'],
+                '$darkTheme' => $defaults['dark_theme'],
+                '$center' => $defaults['center'],
+                '$scale' => null === $defaults['scale'] ? null : (float) $defaults['scale'],
+                '$fontRegular' => $defaults['font_regular'],
+                '$fontItalic' => $defaults['font_italic'],
+                '$fontBold' => $defaults['font_bold'],
+                '$fontSemibold' => $defaults['font_semibold'],
+            ]);
 
         $services->set('d2.command.render', RenderCommand::class)
             ->args([service('d2.renderer'), service('d2.default_options')])

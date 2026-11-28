@@ -7,9 +7,11 @@ namespace Aymericcucherousset\D2Symfony\Tests\Unit\Command;
 use Aymericcucherousset\D2Symfony\Command\RenderCommand;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
+use Aymericcucherousset\D2Symfony\Core\Theme;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\FailingRenderer;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\SpyRenderer;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\UnavailableRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -89,12 +91,63 @@ final class RenderCommandTest extends TestCase
         self::assertTrue($this->renderer->diagrams[0]->options->sketch);
     }
 
+    public function testAllOptionsCanBeGiven(): void
+    {
+        $tester = $this->tester(defaults: new RenderOptions(center: true));
+
+        self::assertSame(Command::SUCCESS, $tester->execute([
+            'input' => $this->input,
+            '--theme' => '0',
+            '--dark-theme' => '200',
+            '--pad' => '0',
+            '--scale' => '0.75',
+            '--no-center' => true,
+        ]));
+
+        self::assertEquals(
+            new RenderOptions(theme: Theme::NeutralDefault, pad: 0, darkTheme: Theme::DarkMauve, scale: 0.75),
+            $this->renderer->diagrams[0]->options,
+        );
+    }
+
+    public function testCenterCanBeEnabled(): void
+    {
+        $this->tester()->execute(['input' => $this->input, '--center' => true]);
+
+        self::assertTrue($this->renderer->diagrams[0]->options->center);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, string>, string}>
+     */
+    public static function invalidNumericOptionProvider(): iterable
+    {
+        yield 'dark theme' => [['--dark-theme' => 'mauve'], 'The "--dark-theme" option must be a positive integer, "mauve" given.'];
+        yield 'unknown dark theme' => [['--dark-theme' => '42'], 'Unknown d2 theme ID 42 for "dark_theme"'];
+        yield 'pad' => [['--pad' => '-1'], 'The "--pad" option must be a positive integer, "-1" given.'];
+        yield 'scale' => [['--scale' => 'half'], 'The "--scale" option must be a number, "half" given.'];
+        yield 'zero scale' => [['--scale' => '0'], 'The scale must be a number greater than 0'];
+    }
+
+    /**
+     * @param array<string, string> $options
+     */
+    #[DataProvider('invalidNumericOptionProvider')]
+    public function testInvalidOptionValuesAreRejected(array $options, string $message): void
+    {
+        $tester = $this->tester();
+
+        self::assertSame(Command::FAILURE, $tester->execute(['input' => $this->input, ...$options]));
+        self::assertStringContainsString($message, preg_replace('/\s+/', ' ', $tester->getDisplay()) ?? '');
+        self::assertSame([], $this->renderer->diagrams);
+    }
+
     public function testInvalidThemeIsRejected(): void
     {
         $tester = $this->tester();
 
         self::assertSame(Command::FAILURE, $tester->execute(['input' => $this->input, '--theme' => 'dark']));
-        self::assertStringContainsString('must be a theme ID', $tester->getDisplay());
+        self::assertStringContainsString('The "--theme" option must be a positive integer', $tester->getDisplay());
         self::assertSame([], $this->renderer->diagrams);
     }
 
@@ -103,7 +156,7 @@ final class RenderCommandTest extends TestCase
         $tester = $this->tester();
 
         self::assertSame(Command::FAILURE, $tester->execute(['input' => $this->input, '--layout' => 'ELK!']));
-        self::assertStringContainsString('layout engine "ELK!" is invalid', $tester->getDisplay());
+        self::assertStringContainsString('Unknown layout engine "ELK!"', $tester->getDisplay());
     }
 
     public function testMissingInputFileIsReported(): void

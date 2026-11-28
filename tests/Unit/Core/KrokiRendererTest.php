@@ -10,6 +10,7 @@ use Aymericcucherousset\D2Symfony\Core\Exception\RemoteUnavailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
 use Aymericcucherousset\D2Symfony\Core\KrokiRenderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
+use Aymericcucherousset\D2Symfony\Core\Theme;
 use Aymericcucherousset\D2Symfony\Tests\Fixtures\SpyLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -51,6 +52,36 @@ final class KrokiRendererTest extends TestCase
         self::assertSame('0', $headers['kroki-diagram-options-pad']);
         self::assertSame('true', $headers['kroki-diagram-options-sketch']);
         self::assertSame([], $logger->logs, 'Supported options trigger no warning.');
+    }
+
+    public function testDarkThemeAndScaleAreSentAsKrokiHeaders(): void
+    {
+        $response = new MockResponse(self::SVG);
+        $logger = new SpyLogger();
+        $renderer = new KrokiRenderer(new MockHttpClient($response), logger: $logger);
+
+        $renderer->render(new Diagram('a -> b', new RenderOptions(theme: Theme::NeutralDefault, darkTheme: Theme::DarkMauve, scale: 0.5)));
+
+        $headers = self::headers($response);
+        self::assertSame('0', $headers['kroki-diagram-options-theme']);
+        self::assertSame('200', $headers['kroki-diagram-options-dark-theme']);
+        self::assertSame('0.5', $headers['kroki-diagram-options-scale']);
+        self::assertSame([], $logger->logs);
+    }
+
+    public function testUnsupportedOptionsAreIgnoredWithAWarning(): void
+    {
+        $response = new MockResponse(self::SVG);
+        $logger = new SpyLogger();
+        $renderer = new KrokiRenderer(new MockHttpClient($response), logger: $logger);
+
+        $renderer->render(new Diagram('a -> b', new RenderOptions(sketch: true, center: true, fontBold: '/fonts/bold.ttf')));
+
+        $headers = self::headers($response);
+        self::assertSame('true', $headers['kroki-diagram-options-sketch']);
+        self::assertArrayNotHasKey('kroki-diagram-options-center', $headers);
+        self::assertSame(['center', 'font_bold'], array_column(array_column($logger->logs, 'context'), 'option'));
+        self::assertSame(['warning', 'warning'], array_column($logger->logs, 'level'));
     }
 
     public function testCustomBaseUrlWithPathAndTrailingSlash(): void

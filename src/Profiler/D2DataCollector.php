@@ -14,7 +14,7 @@ use Symfony\Component\HttpKernel\DataCollector\LateDataCollectorInterface;
  *
  * @phpstan-type Render array{
  *     source: string,
- *     options: array<string, int|string|true>,
+ *     options: array<string, int|float|string|true>,
  *     svg_data_uri: string|null,
  *     svg_size: int,
  *     error: array{class: class-string, message: string}|null,

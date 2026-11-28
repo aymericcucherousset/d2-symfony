@@ -277,7 +277,16 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
                 $container->loadFromExtension('d2', [
                     'binary_path' => self::FAKE_D2,
                     'timeout' => 5,
-                    'defaults' => ['theme' => 200, 'layout' => 'elk', 'pad' => 10, 'sketch' => true],
+                    'defaults' => [
+                        'theme' => 200,
+                        'dark_theme' => 201,
+                        'layout' => 'elk',
+                        'pad' => 10,
+                        'sketch' => true,
+                        'center' => true,
+                        'scale' => 1,
+                        'font_bold' => '/fonts/bold.ttf',
+                    ],
                 ]);
             });
         }]);
@@ -288,7 +297,7 @@ final class D2SymfonyBundleKernelTest extends KernelTestCase
         self::assertStringContainsString("stdin:a -> b\n", $renderer->render(new Diagram('a -> b')));
 
         self::assertEquals(
-            new RenderOptions(theme: 200, layout: 'elk', pad: 10, sketch: true),
+            new RenderOptions(theme: 200, layout: 'elk', pad: 10, sketch: true, darkTheme: 201, center: true, scale: 1.0, fontBold: '/fonts/bold.ttf'),
             $container->get('d2.default_options'),
         );
     }

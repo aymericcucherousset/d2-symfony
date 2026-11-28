@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Aymericcucherousset\D2Symfony\Tests\Unit\Bundle;
 
+use Aymericcucherousset\D2Symfony\Core\Layout;
+use Aymericcucherousset\D2Symfony\Core\Theme;
 use Aymericcucherousset\D2Symfony\D2SymfonyBundle;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +27,7 @@ final class ConfigurationTest extends TestCase
             'binary_version' => 'v0.9.0',
             'install_dir' => '%kernel.project_dir%/var/d2',
             'timeout' => 60.0,
-            'defaults' => ['theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false],
+            'defaults' => ['theme' => null, 'dark_theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false, 'center' => false, 'scale' => null, 'font_regular' => null, 'font_italic' => null, 'font_bold' => null, 'font_semibold' => null],
             'cache' => ['enabled' => true, 'pool' => 'cache.d2'],
             'twig' => ['prerender_static' => null],
         ], self::process([]));
@@ -41,7 +43,19 @@ final class ConfigurationTest extends TestCase
             'binary_version' => '0.8.1',
             'install_dir' => '/opt/d2',
             'timeout' => 12.5,
-            'defaults' => ['theme' => 200, 'layout' => 'elk', 'pad' => 0, 'sketch' => true],
+            'defaults' => [
+                'theme' => 200,
+                'dark_theme' => 201,
+                'layout' => 'elk',
+                'pad' => 0,
+                'sketch' => true,
+                'center' => true,
+                'scale' => 0.5,
+                'font_regular' => '/fonts/regular.ttf',
+                'font_italic' => '/fonts/italic.ttf',
+                'font_bold' => '/fonts/bold.ttf',
+                'font_semibold' => '/fonts/semibold.ttf',
+            ],
             'cache' => ['pool' => 'cache.redis', 'enabled' => true],
             'twig' => ['prerender_static' => false],
         ], self::process([
@@ -52,7 +66,19 @@ final class ConfigurationTest extends TestCase
             'binary_version' => '0.8.1',
             'install_dir' => '/opt/d2',
             'timeout' => 12.5,
-            'defaults' => ['theme' => 200, 'layout' => 'elk', 'pad' => 0, 'sketch' => true],
+            'defaults' => [
+                'theme' => 200,
+                'dark_theme' => 201,
+                'layout' => 'elk',
+                'pad' => 0,
+                'sketch' => true,
+                'center' => true,
+                'scale' => 0.5,
+                'font_regular' => '/fonts/regular.ttf',
+                'font_italic' => '/fonts/italic.ttf',
+                'font_bold' => '/fonts/bold.ttf',
+                'font_semibold' => '/fonts/semibold.ttf',
+            ],
             'cache' => ['pool' => 'cache.redis'],
             'twig' => ['prerender_static' => false],
         ]));
@@ -76,14 +102,25 @@ final class ConfigurationTest extends TestCase
         self::assertNull(self::process(['timeout' => null])['timeout']);
     }
 
+    public function testEnumsAndIntegerScaleAreAcceptedInDefaults(): void
+    {
+        /** @var array<string, mixed> $defaults */
+        $defaults = self::process(['defaults' => ['theme' => Theme::DarkMauve, 'dark_theme' => Theme::DarkFlagshipTerrastruct, 'layout' => Layout::Elk, 'scale' => 2]])['defaults'];
+
+        self::assertSame(200, $defaults['theme']);
+        self::assertSame(201, $defaults['dark_theme']);
+        self::assertSame('elk', $defaults['layout']);
+        self::assertEquals(2.0, $defaults['scale']);
+    }
+
     public function testNullDefaultsMeanD2Defaults(): void
     {
         self::assertSame(
-            ['theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false],
+            ['theme' => null, 'dark_theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false, 'center' => false, 'scale' => null, 'font_regular' => null, 'font_italic' => null, 'font_bold' => null, 'font_semibold' => null],
             self::process(['defaults' => ['theme' => null, 'layout' => null, 'pad' => null]])['defaults'],
         );
         self::assertSame(
-            ['theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false],
+            ['theme' => null, 'dark_theme' => null, 'layout' => null, 'pad' => null, 'sketch' => false, 'center' => false, 'scale' => null, 'font_regular' => null, 'font_italic' => null, 'font_bold' => null, 'font_semibold' => null],
             self::process(['defaults' => null])['defaults'],
         );
     }
@@ -121,7 +158,17 @@ final class ConfigurationTest extends TestCase
         yield 'non-http Kroki URL' => [['kroki' => ['base_url' => 'ftp://kroki.io']]];
         yield 'non-string Kroki URL' => [['kroki' => ['base_url' => 42]]];
         yield 'empty Kroki HTTP client' => [['kroki' => ['http_client' => '']]];
-        yield 'unknown default' => [['defaults' => ['scale' => 2]]];
+        yield 'unknown default' => [['defaults' => ['font_mono' => '/fonts/mono.ttf']]];
+        yield 'unknown theme' => [['defaults' => ['theme' => 2]]];
+        yield 'unknown dark theme' => [['defaults' => ['dark_theme' => 42]]];
+        yield 'negative dark theme' => [['defaults' => ['dark_theme' => -1]]];
+        yield 'unknown layout' => [['defaults' => ['layout' => 'grid']]];
+        yield 'zero scale' => [['defaults' => ['scale' => 0]]];
+        yield 'negative scale' => [['defaults' => ['scale' => -0.5]]];
+        yield 'string scale' => [['defaults' => ['scale' => 'big']]];
+        yield 'string center' => [['defaults' => ['center' => 'yes']]];
+        yield 'empty font' => [['defaults' => ['font_bold' => '']]];
+        yield 'non-string font' => [['defaults' => ['font_regular' => 12]]];
     }
 
     /**
