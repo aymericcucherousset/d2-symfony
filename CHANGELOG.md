@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-28
+
 ### Added
 
 - Markdown: `D2CommonMarkExtension` for league/commonmark renders ```` ```d2 ```` fenced code blocks to inline SVG with any `Renderer`; other code blocks are left unchanged and D2 errors give the Markdown line. With league/commonmark installed, the bundle registers it as `d2.commonmark.extension` (autowirable) for the `|markdown_to_html` Twig filter of twig/extra-bundle, with the configured renderer, cache and `d2.defaults` ([#26](https://github.com/aymericcucherousset/d2-symfony/issues/26)).
@@ -108,7 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `D2Bundle::getPath()` now returns the package root instead of `src/`.
 
-[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/aymericcucherousset/d2-symfony/compare/v0.2.0...v0.3.0
