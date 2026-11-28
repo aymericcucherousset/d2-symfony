@@ -19,6 +19,7 @@ final readonly class D2Runtime implements RuntimeExtensionInterface
     public function __construct(
         private Renderer $renderer,
         private RenderOptions $defaults = new RenderOptions(),
+        private ?D2FileLoader $files = null,
     ) {
     }
 
@@ -41,6 +42,33 @@ final readonly class D2Runtime implements RuntimeExtensionInterface
 
         // An XML declaration is not valid inside an HTML document.
         return preg_replace('/^\s*<\?xml[^>]*\?>\s*/', '', $svg) ?? $svg;
+    }
+
+    /**
+     * Renders a `.d2` file, relative to the configured root directory, to inline SVG markup.
+     *
+     * The file is read on each call; rendered SVG is cached by content, so editing the file
+     * renders it again.
+     *
+     * @param array<array-key, mixed> $options overrides of the default options, see {@see RenderOptions}
+     *
+     * @throws D2Exception
+     * @throws RuntimeError when D2 rejects the file
+     */
+    public function renderFile(string|\Stringable $path, array $options = []): string
+    {
+        if (null === $this->files) {
+            throw new InvalidArgumentException('The d2_file() function requires a root directory: pass a D2FileLoader to the D2Runtime.');
+        }
+
+        $path = (string) $path;
+
+        try {
+            return $this->render($this->files->load($path), $options);
+        } catch (RenderException $e) {
+            // Tell which file the D2 line refers to; Twig adds the template and line of the call.
+            throw new RuntimeError(\sprintf('%s (in D2 file "%s")', $e->getMessage(), $path), -1, null, $e);
+        }
     }
 
     /**

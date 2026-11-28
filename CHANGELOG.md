@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Twig: `{{ d2_file('diagrams/architecture.d2', { theme: 200 }) }}` renders a `.d2` file with the same options as `|d2`. Paths are relative to the new `d2.twig.root_dir` option (default `%kernel.project_dir%`); only `.d2` files inside it are accepted, so absolute paths, `../` and symbolic links leading outside of it are rejected. The file is read on each render and cached by content, so edits are picked up without clearing the cache ([#25](https://github.com/aymericcucherousset/d2-symfony/issues/25)).
 - Core: `Format` enum (`Svg`, `Png`, `Pdf`, with `mimeType()`) and the `format` render option (`RenderOptions::$format`, `withFormat()`, `format` in `merge()`), passed to d2 as `--stdout-format`. `BinaryRenderer` renders PNG and PDF; the SVG format is not part of `toArray()` and CLI arguments, so cache keys of existing diagrams are unchanged ([#24](https://github.com/aymericcucherousset/d2-symfony/issues/24)).
 - Core: `UnsupportedFormatException`, a `RendererUnavailableException` thrown by `KrokiRenderer` for formats other than SVG, so a `ChainRenderer` falls back to the next renderer.
 - Twig: `|d2_data_uri` filter returning a base64 `data:` URI, PNG by default (`format` option: `svg`, `png` or `pdf`), for HTML-to-PDF generators and emails.
