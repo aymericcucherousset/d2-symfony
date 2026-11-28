@@ -14,7 +14,11 @@ use Aymericcucherousset\D2Symfony\Core\Exception\InvalidArgumentException;
  *
  * Option names, as used by {@see merge()}, {@see toArray()}, Twig and the bundle
  * configuration: theme, dark_theme, layout, pad, sketch, center, scale,
- * font_regular, font_italic, font_bold and font_semibold.
+ * font_regular, font_italic, font_bold, font_semibold and format.
+ *
+ * The format (SVG by default) is not a d2 default but always set: it tells
+ * renderers and callers what kind of document {@see Renderer::render()} returns.
+ * It is not part of the bundle configuration, since `|d2` only outputs SVG.
  */
 final readonly class RenderOptions
 {
@@ -31,11 +35,13 @@ final readonly class RenderOptions
         'font_italic' => 'fontItalic',
         'font_bold' => 'fontBold',
         'font_semibold' => 'fontSemibold',
+        'format' => 'format',
     ];
 
     public ?Theme $theme;
     public ?Theme $darkTheme;
     public ?Layout $layout;
+    public Format $format;
 
     /**
      * @param Theme|int|null     $theme        theme of the diagram, or of its light mode when $darkTheme is set
@@ -49,8 +55,9 @@ final readonly class RenderOptions
      * @param string|null        $fontItalic   path to the .ttf file used for italic text
      * @param string|null        $fontBold     path to the .ttf file used for bold text
      * @param string|null        $fontSemibold path to the .ttf file used for semibold text
+     * @param Format|string      $format       output format: SVG (default), PNG or PDF
      *
-     * @throws InvalidArgumentException on unknown themes or layouts, or out of range values
+     * @throws InvalidArgumentException on unknown themes, layouts or formats, or out of range values
      */
     public function __construct(
         Theme|int|null $theme = null,
@@ -64,10 +71,12 @@ final readonly class RenderOptions
         public ?string $fontItalic = null,
         public ?string $fontBold = null,
         public ?string $fontSemibold = null,
+        Format|string $format = Format::Svg,
     ) {
         $this->theme = self::theme($theme, 'theme');
         $this->darkTheme = self::theme($darkTheme, 'dark_theme');
         $this->layout = self::layout($layout);
+        $this->format = self::format($format);
 
         if (null !== $pad && $pad < 0) {
             throw new InvalidArgumentException(\sprintf('The padding must be a positive integer, %d given.', $pad));
@@ -119,6 +128,11 @@ final readonly class RenderOptions
         return $this->with(['scale' => $scale]);
     }
 
+    public function withFormat(Format|string $format): self
+    {
+        return $this->with(['format' => $format]);
+    }
+
     /**
      * Returns a copy using the given .ttf files; a null font uses the d2 default font.
      */
@@ -131,7 +145,8 @@ final readonly class RenderOptions
      * Returns a copy with the given options overridden, e.g. from Twig or configuration arrays.
      *
      * Keys are option names (see the class description); a null value resets the option to
-     * the d2 default. Themes accept a {@see Theme} or its ID, layouts a {@see Layout} or its name.
+     * the d2 default (SVG for the format). Themes accept a {@see Theme} or its ID, layouts a
+     * {@see Layout} or its name, formats a {@see Format} or its name.
      *
      * @param array<array-key, mixed> $options
      *
@@ -153,6 +168,7 @@ final readonly class RenderOptions
                 'pad' => self::typed($name, $value, null, 'int', 'an integer'),
                 'sketch', 'center' => self::typed($name, $value, null, 'bool', 'a boolean') ?? false,
                 'scale' => \is_int($value) ? (float) $value : self::typed($name, $value, null, 'float', 'a number'),
+                'format' => self::typed($name, $value, Format::class, 'string', 'a format name') ?? Format::Svg,
                 default => self::typed($name, $value, null, 'string', 'a file path'),
             };
         }
@@ -170,7 +186,7 @@ final readonly class RenderOptions
         $arguments = [];
 
         foreach ($this->toArray() as $name => $value) {
-            $flag = '--'.str_replace('_', '-', $name);
+            $flag = 'format' === $name ? '--stdout-format' : '--'.str_replace('_', '-', $name);
             $arguments[] = true === $value ? $flag : $flag.'='.$value;
         }
 
@@ -179,6 +195,8 @@ final readonly class RenderOptions
 
     /**
      * Returns the options that differ from the d2 defaults, keyed by option name, in a stable order.
+     *
+     * The format is only included when it is not SVG.
      *
      * Renderers that do not drive the d2 CLI (e.g. HTTP renderers) map options from this array.
      *
@@ -199,6 +217,7 @@ final readonly class RenderOptions
             'font_italic' => $this->fontItalic,
             'font_bold' => $this->fontBold,
             'font_semibold' => $this->fontSemibold,
+            'format' => Format::Svg === $this->format ? null : $this->format->value,
         ], static fn (int|float|string|bool|null $value): bool => null !== $value);
     }
 
@@ -228,6 +247,7 @@ final readonly class RenderOptions
             'fontItalic' => $this->fontItalic,
             'fontBold' => $this->fontBold,
             'fontSemibold' => $this->fontSemibold,
+            'format' => $this->format,
             ...$changes,
         ]);
     }
@@ -252,6 +272,15 @@ final readonly class RenderOptions
         }
 
         return Theme::tryFrom($theme) ?? throw new InvalidArgumentException(\sprintf('Unknown d2 theme ID %d for "%s"; available themes are %s.', $theme, $name, implode(', ', array_map(static fn (Theme $theme): string => $theme->value.' ('.$theme->name.')', Theme::cases()))));
+    }
+
+    private static function format(Format|string $format): Format
+    {
+        if (!\is_string($format)) {
+            return $format;
+        }
+
+        return Format::fromExtension($format) ?? throw new InvalidArgumentException(\sprintf('Unknown output format "%s"; available formats are "%s".', $format, implode('", "', Format::values())));
     }
 
     private static function layout(Layout|string|null $layout): ?Layout

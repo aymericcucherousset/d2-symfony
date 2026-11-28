@@ -7,6 +7,7 @@ namespace Aymericcucherousset\D2Symfony\Tests\Integration;
 use Aymericcucherousset\D2Symfony\Core\BinaryRenderer;
 use Aymericcucherousset\D2Symfony\Core\Diagram;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
+use Aymericcucherousset\D2Symfony\Core\Format;
 use Aymericcucherousset\D2Symfony\Core\Layout;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Core\Theme;
@@ -31,6 +32,22 @@ final class BinaryRendererTest extends TestCase
 
         self::assertStringContainsString('<svg', $svg);
         self::assertStringEndsWith('</svg>', trim($svg));
+    }
+
+    public function testItRendersPng(): void
+    {
+        $png = $this->renderer->render(new Diagram('a -> b', new RenderOptions(format: Format::Png)));
+
+        self::assertStringStartsWith("\x89PNG\r\n\x1a\n", $png);
+        self::assertSame('IHDR', substr($png, 12, 4));
+    }
+
+    public function testItRendersPdf(): void
+    {
+        $pdf = $this->renderer->render(new Diagram('a -> b', new RenderOptions(format: Format::Pdf, sketch: true)));
+
+        self::assertStringStartsWith('%PDF-', $pdf);
+        self::assertStringContainsString('%%EOF', substr($pdf, -32));
     }
 
     public function testOptionsChangeTheOutput(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Aymericcucherousset\D2Symfony\Tests\Unit\Command;
 
 use Aymericcucherousset\D2Symfony\Command\RenderCommand;
+use Aymericcucherousset\D2Symfony\Core\Format;
 use Aymericcucherousset\D2Symfony\Core\Renderer;
 use Aymericcucherousset\D2Symfony\Core\RenderOptions;
 use Aymericcucherousset\D2Symfony\Core\Theme;
@@ -14,6 +15,7 @@ use Aymericcucherousset\D2Symfony\Tests\Fixtures\UnavailableRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
 
@@ -185,6 +187,53 @@ final class RenderCommandTest extends TestCase
         self::assertStringContainsString($this->input.':2:5: unexpected token', $tester->getDisplay());
     }
 
+    public function testFormatIsInferredFromTheOutputExtension(): void
+    {
+        $tester = $this->tester();
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['input' => $this->input, '-o' => $this->dir.'/out.PNG']));
+        self::assertSame(Format::Png, $this->renderer->diagrams[0]->options->format);
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['input' => $this->input, '-o' => $this->dir.'/out.txt']));
+        self::assertSame(Format::Svg, $this->renderer->diagrams[1]->options->format, 'Unknown extensions keep the default format.');
+    }
+
+    public function testFormatOptionWinsOverTheOutputExtension(): void
+    {
+        $tester = $this->tester();
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['input' => $this->input, '-o' => $this->dir.'/out.svg', '--format' => 'PDF']));
+        self::assertSame(Format::Pdf, $this->renderer->diagrams[0]->options->format);
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['input' => $this->input, '-f' => 'png']));
+        self::assertSame(Format::Png, $this->renderer->diagrams[1]->options->format);
+    }
+
+    public function testBinaryDocumentIsWrittenToStdoutUnchanged(): void
+    {
+        $tester = $this->tester(new SpyRenderer("\x89PNG\r\n\x1a\n\0binary"));
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['input' => $this->input, '--format' => 'png'], ['capture_stderr_separately' => true]));
+        self::assertSame("\x89PNG\r\n\x1a\n\0binary", $tester->getDisplay());
+    }
+
+    public function testDocumentIsWrittenToStdoutInQuietMode(): void
+    {
+        $tester = $this->tester(new SpyRenderer('<svg/>'));
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['input' => $this->input], ['verbosity' => OutputInterface::VERBOSITY_QUIET, 'capture_stderr_separately' => true]));
+        self::assertSame('<svg/>', $tester->getDisplay());
+    }
+
+    public function testUnknownFormatIsRejected(): void
+    {
+        $tester = $this->tester();
+
+        self::assertSame(Command::FAILURE, $tester->execute(['input' => $this->input, '--format' => 'jpg']));
+        self::assertStringContainsString('The "--format" option must be one of "svg", "png", "pdf"; "jpg" given.', $tester->getDisplay());
+        self::assertSame([], $this->renderer->diagrams);
+    }
+
     public function testUnavailableRendererIsReported(): void
     {
         $tester = $this->tester(new UnavailableRenderer());
@@ -197,7 +246,7 @@ final class RenderCommandTest extends TestCase
         $tester = $this->tester();
 
         self::assertSame(Command::FAILURE, $tester->execute(['input' => $this->input, '-o' => $this->dir.'/missing/out.svg']));
-        self::assertStringContainsString('Unable to write the SVG', $tester->getDisplay());
+        self::assertStringContainsString('Unable to write the diagram', $tester->getDisplay());
     }
 
     private function tester(?Renderer $renderer = null, RenderOptions $defaults = new RenderOptions()): CommandTester

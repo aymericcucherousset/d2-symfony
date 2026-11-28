@@ -11,6 +11,7 @@ use Aymericcucherousset\D2Symfony\Core\Exception\NoRendererAvailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RemoteUnavailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RendererUnavailableException;
 use Aymericcucherousset\D2Symfony\Core\Exception\RenderException;
+use Aymericcucherousset\D2Symfony\Core\Exception\UnsupportedFormatException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -30,6 +31,7 @@ final class ExceptionHierarchyTest extends TestCase
         yield 'InvalidArgumentException' => [InvalidArgumentException::class, \InvalidArgumentException::class];
         yield 'RemoteUnavailableException' => [RemoteUnavailableException::class, \RuntimeException::class];
         yield 'NoRendererAvailableException' => [NoRendererAvailableException::class, \RuntimeException::class];
+        yield 'UnsupportedFormatException' => [UnsupportedFormatException::class, \RuntimeException::class];
     }
 
     /**
@@ -51,6 +53,7 @@ final class ExceptionHierarchyTest extends TestCase
         yield 'BinaryNotFoundException' => [BinaryNotFoundException::class, true];
         yield 'RemoteUnavailableException' => [RemoteUnavailableException::class, true];
         yield 'NoRendererAvailableException' => [NoRendererAvailableException::class, true];
+        yield 'UnsupportedFormatException' => [UnsupportedFormatException::class, true];
         yield 'RenderException' => [RenderException::class, false];
         yield 'InvalidArgumentException' => [InvalidArgumentException::class, false];
     }
